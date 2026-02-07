@@ -617,7 +617,7 @@
       });
     }
 
-    // Country Distribution Chart - optimized for readability (horizontal bars)
+    // Country Distribution Chart - vertical bars like Certifications chart
     function createCountryChart(labels, data, total, fullLabels) {
       const canvasId = 'chartCountries';
       
@@ -644,7 +644,7 @@
       if (!labels || labels.length === 0 || !data || data.length === 0) {
         canvas.style.display = 'none';
         if (emptyEl) emptyEl.classList.remove('hidden');
-        container.style.height = '160px';
+        container.style.height = '200px';
         return;
       }
 
@@ -652,46 +652,36 @@
       canvas.style.display = 'block';
       if (emptyEl) emptyEl.classList.add('hidden');
 
-      // Calculate dynamic height based on number of countries
-      // Each bar needs ~36px, plus padding for axis labels
+      // Calculate dynamic height based on number of countries (for label space)
       const labelCount = labels.length;
-      const barHeight = 36;
-      const paddingHeight = 50;
-      const dynamicHeight = Math.min(Math.max(labelCount * barHeight + paddingHeight, 180), 600);
-      
-      // Set container height BEFORE creating chart
+      const dynamicHeight = Math.min(Math.max(220, 180 + labelCount * 8), 400);
       container.style.height = dynamicHeight + 'px';
 
-      // Create horizontal bar chart
+      // Truncate labels for display (same as certs chart)
+      const displayLabels = labels.map(l => truncateLabel(l, 10));
+
+      // Create vertical bar chart (same style as certifications)
       charts[canvasId] = new Chart(canvas, {
         type: 'bar',
         data: {
-          labels: fullLabels,
+          labels: displayLabels,
           datasets: [{
-            label: 'Responses',
+            label: 'Count',
             data: data,
             backgroundColor: CHART_COLORS.slice(0, data.length),
             borderRadius: 4,
-            barThickness: 24,
-            maxBarThickness: 28
+            maxBarThickness: 40
           }]
         },
         options: {
-          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
           layout: {
-            padding: {
-              left: 10,
-              right: 20,
-              top: 10,
-              bottom: 10
-            }
+            padding: { top: 25, bottom: 10, left: 5, right: 5 }
           },
           plugins: {
             legend: { display: false },
             tooltip: {
-              enabled: true,
               callbacks: {
                 title: function(tooltipItems) {
                   return fullLabels[tooltipItems[0].dataIndex];
@@ -708,12 +698,13 @@
               titleFont: { size: 13, weight: 'bold' },
               bodyFont: { size: 12 },
               padding: 10,
-              cornerRadius: 6,
-              displayColors: true
-            }
+              cornerRadius: 6
+            },
+            // Show count values on top of bars
+            datalabels: false
           },
           scales: {
-            x: {
+            y: {
               beginAtZero: true,
               grid: { 
                 color: 'rgba(255, 255, 255, 0.06)',
@@ -721,19 +712,39 @@
               },
               ticks: { 
                 color: '#9ca3af', 
-                font: { size: 11 },
-                stepSize: 1,
+                font: { size: 10 },
+                stepSize: 2,
                 precision: 0
               }
             },
-            y: {
+            x: {
               grid: { display: false },
               ticks: { 
                 color: '#f3f4f6', 
-                font: { size: 13, weight: '500' },
-                padding: 8,
+                font: { size: 10 },
+                maxRotation: 45,
+                minRotation: 45,
                 autoSkip: false
               }
+            }
+          },
+          // Custom plugin to draw count labels on top of bars
+          animation: {
+            onComplete: function() {
+              const chart = this;
+              const ctx = chart.ctx;
+              ctx.font = '10px Inter, sans-serif';
+              ctx.fillStyle = '#9ca3af';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              
+              chart.data.datasets.forEach(function(dataset, i) {
+                const meta = chart.getDatasetMeta(i);
+                meta.data.forEach(function(bar, index) {
+                  const value = dataset.data[index];
+                  ctx.fillText(value, bar.x, bar.y - 5);
+                });
+              });
             }
           }
         }
