@@ -46,7 +46,7 @@ export function DashboardHeader({
             </motion.div>
             <div>
               <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
-                Cybersecurity Survey
+                Cybersecurity Training Assessment
               </h1>
               <p className="mt-0.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
                 <Activity className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
