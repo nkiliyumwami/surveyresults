@@ -798,7 +798,7 @@
       createVerticalBarChart('chartTime', timePairs.map(p => p[0]), timePairs.map(p => p[1]), total, timePairs.map(p => p[0]));
 
       const countryPairs = mapToSortedPairs(countryMap);
-      createCountryChart(countryPairs.map(p => p[0]), countryPairs.map(p => p[1]), total, countryPairs.map(p => p[0]));
+      createHorizontalBarChart('chartCountries', countryPairs.map(p => p[0]), countryPairs.map(p => p[1]), total, countryPairs.map(p => p[0]));
 
       const certPairs = mapToSortedPairs(certMap, 10);
       createHorizontalBarChart('chartCerts', certPairs.map(p => p[0]), certPairs.map(p => p[1]), total, certPairs.map(p => p[0]));
