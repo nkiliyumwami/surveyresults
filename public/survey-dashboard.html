@@ -617,20 +617,31 @@
       });
     }
 
-    // Country Distribution Chart - optimized for readability
+    // Country Distribution Chart - optimized for readability (horizontal bars)
     function createCountryChart(labels, data, total, fullLabels) {
       const canvasId = 'chartCountries';
-      destroyChart(canvasId);
-      hideLoading(canvasId);
+      
+      // Destroy existing chart first
+      if (charts[canvasId]) {
+        charts[canvasId].destroy();
+        charts[canvasId] = null;
+      }
+      
+      // Hide loading indicator
+      const loadingEl = document.getElementById('chartCountriesLoading');
+      if (loadingEl) loadingEl.style.display = 'none';
       
       const canvas = document.getElementById(canvasId);
       const container = document.getElementById('chartCountriesContainer');
       const emptyEl = document.getElementById('chartCountriesEmpty');
       
-      if (!canvas || !container) return;
+      if (!canvas || !container) {
+        console.warn('Country chart: canvas or container not found');
+        return;
+      }
 
-      // Handle empty data
-      if (!labels || labels.length === 0 || data.length === 0) {
+      // Handle empty data gracefully
+      if (!labels || labels.length === 0 || !data || data.length === 0) {
         canvas.style.display = 'none';
         if (emptyEl) emptyEl.classList.remove('hidden');
         container.style.height = '160px';
@@ -641,61 +652,87 @@
       canvas.style.display = 'block';
       if (emptyEl) emptyEl.classList.add('hidden');
 
-      // Dynamic height: clamp(labelCount * 32 + 60, 160, 520)
+      // Calculate dynamic height based on number of countries
+      // Each bar needs ~36px, plus padding for axis labels
       const labelCount = labels.length;
-      const dynamicHeight = Math.min(Math.max(labelCount * 32 + 60, 160), 520);
+      const barHeight = 36;
+      const paddingHeight = 50;
+      const dynamicHeight = Math.min(Math.max(labelCount * barHeight + paddingHeight, 180), 600);
+      
+      // Set container height BEFORE creating chart
       container.style.height = dynamicHeight + 'px';
 
+      // Create horizontal bar chart
       charts[canvasId] = new Chart(canvas, {
         type: 'bar',
         data: {
-          labels: fullLabels, // Use full labels, no truncation
+          labels: fullLabels,
           datasets: [{
+            label: 'Responses',
             data: data,
             backgroundColor: CHART_COLORS.slice(0, data.length),
             borderRadius: 4,
-            barThickness: 22,
+            barThickness: 24,
+            maxBarThickness: 28
           }]
         },
         options: {
-          indexAxis: 'y', // Horizontal bar
+          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
           layout: {
-            padding: { left: 5, right: 15, top: 10, bottom: 10 }
+            padding: {
+              left: 10,
+              right: 20,
+              top: 10,
+              bottom: 10
+            }
           },
           plugins: {
             legend: { display: false },
             tooltip: {
+              enabled: true,
               callbacks: {
-                title: (items) => fullLabels[items[0].dataIndex],
-                label: (item) => `${item.raw} responses (${getPercentage(item.raw, total)}%)`
+                title: function(tooltipItems) {
+                  return fullLabels[tooltipItems[0].dataIndex];
+                },
+                label: function(context) {
+                  const count = context.raw;
+                  const pct = getPercentage(count, total);
+                  return count + ' (' + pct + '%)';
+                }
               },
               backgroundColor: 'rgba(30, 41, 59, 0.95)',
-              titleColor: '#fff',
+              titleColor: '#ffffff',
               bodyColor: '#e2e8f0',
               titleFont: { size: 13, weight: 'bold' },
               bodyFont: { size: 12 },
               padding: 10,
-              cornerRadius: 6
+              cornerRadius: 6,
+              displayColors: true
             }
           },
           scales: {
             x: {
-              grid: { color: 'rgba(255,255,255,0.05)' },
+              beginAtZero: true,
+              grid: { 
+                color: 'rgba(255, 255, 255, 0.06)',
+                drawBorder: false
+              },
               ticks: { 
                 color: '#9ca3af', 
                 font: { size: 11 },
-                stepSize: 1
-              },
-              beginAtZero: true
+                stepSize: 1,
+                precision: 0
+              }
             },
             y: {
               grid: { display: false },
               ticks: { 
                 color: '#f3f4f6', 
-                font: { size: 12, weight: '500' },
-                padding: 8
+                font: { size: 13, weight: '500' },
+                padding: 8,
+                autoSkip: false
               }
             }
           }
