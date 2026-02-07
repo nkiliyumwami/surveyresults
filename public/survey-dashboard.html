@@ -617,137 +617,120 @@
       });
     }
 
-    // Country Distribution Chart - vertical bars like Certifications chart
+    // Country Distribution Chart - dedicated builder (horizontal bars, readable labels)
     function createCountryChart(labels, data, total, fullLabels) {
-      const canvasId = 'chartCountries';
-      
-      // Destroy existing chart first
+      // Support both ids just in case (some versions used chartCountry)
+      const canvas = document.getElementById('chartCountry') || document.getElementById('chartCountries');
+      const container = document.getElementById('chartCountryContainer') || document.getElementById('chartCountriesContainer');
+      const loadingEl = document.getElementById('chartCountryLoading') || document.getElementById('chartCountriesLoading');
+      let emptyEl = document.getElementById('chartCountryEmpty') || document.getElementById('chartCountriesEmpty');
+
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (!canvas || !container) return;
+
+      const canvasId = canvas.id;
+
+      // Destroy and recreate ONLY this chart
       if (charts[canvasId]) {
         charts[canvasId].destroy();
         charts[canvasId] = null;
       }
-      
-      // Hide loading indicator
-      const loadingEl = document.getElementById('chartCountriesLoading');
-      if (loadingEl) loadingEl.style.display = 'none';
-      
-      const canvas = document.getElementById(canvasId);
-      const container = document.getElementById('chartCountriesContainer');
-      const emptyEl = document.getElementById('chartCountriesEmpty');
-      
-      if (!canvas || !container) {
-        console.warn('Country chart: canvas or container not found');
-        return;
+
+      // Ensure we have an empty-state node to toggle (fallback creates one if missing)
+      if (!emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.id = canvasId + 'EmptyAuto';
+        emptyEl.className = 'hidden absolute inset-0 flex items-center justify-center text-gray-500 text-sm';
+        emptyEl.textContent = 'No data';
+        container.appendChild(emptyEl);
       }
 
-      // Handle empty data gracefully
+      // Empty data handling
       if (!labels || labels.length === 0 || !data || data.length === 0) {
         canvas.style.display = 'none';
-        if (emptyEl) emptyEl.classList.remove('hidden');
-        container.style.height = '200px';
+        emptyEl.classList.remove('hidden');
+        container.style.height = '160px';
         return;
       }
 
-      // Show canvas, hide empty message
+      // Show chart
       canvas.style.display = 'block';
-      if (emptyEl) emptyEl.classList.add('hidden');
+      emptyEl.classList.add('hidden');
 
-      // Calculate dynamic height based on number of countries (for label space)
+      // Dynamic height: clamp(labelCount * 26 + 60, 160, 520)
       const labelCount = labels.length;
-      const dynamicHeight = Math.min(Math.max(220, 180 + labelCount * 8), 400);
+      const dynamicHeight = Math.min(Math.max(labelCount * 26 + 60, 160), 520);
       container.style.height = dynamicHeight + 'px';
 
-      // Truncate labels for display (same as certs chart)
-      const displayLabels = labels.map(l => truncateLabel(l, 10));
+      // Sensible truncation for axis ticks only; full label in tooltip
+      const tickLabel = (label) => truncateLabel(label, 24);
 
-      // Create vertical bar chart (same style as certifications)
       charts[canvasId] = new Chart(canvas, {
         type: 'bar',
         data: {
-          labels: displayLabels,
-          datasets: [{
-            label: 'Count',
-            data: data,
-            backgroundColor: CHART_COLORS.slice(0, data.length),
-            borderRadius: 4,
-            maxBarThickness: 40
-          }]
+          labels: fullLabels,
+          datasets: [
+            {
+              data,
+              backgroundColor: CHART_COLORS.slice(0, data.length),
+              borderRadius: 4,
+              borderSkipped: false,
+              barThickness: 18,
+              maxBarThickness: 22,
+              categoryPercentage: 0.85,
+              barPercentage: 0.9,
+            },
+          ],
         },
         options: {
+          indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
+          animation: false,
           layout: {
-            padding: { top: 25, bottom: 10, left: 5, right: 5 }
+            padding: { left: 8, right: 16, top: 8, bottom: 8 },
           },
           plugins: {
             legend: { display: false },
             tooltip: {
               callbacks: {
-                title: function(tooltipItems) {
-                  return fullLabels[tooltipItems[0].dataIndex];
-                },
-                label: function(context) {
-                  const count = context.raw;
+                title: () => '',
+                label: (ctx) => {
+                  const country = fullLabels?.[ctx.dataIndex] ?? ctx.label;
+                  const count = Number(ctx.raw ?? 0);
                   const pct = getPercentage(count, total);
-                  return count + ' (' + pct + '%)';
-                }
+                  return `${country}: ${count} (${pct}%)`;
+                },
               },
-              backgroundColor: 'rgba(30, 41, 59, 0.95)',
-              titleColor: '#ffffff',
-              bodyColor: '#e2e8f0',
-              titleFont: { size: 13, weight: 'bold' },
-              bodyFont: { size: 12 },
-              padding: 10,
-              cornerRadius: 6
+              displayColors: false,
             },
-            // Show count values on top of bars
-            datalabels: false
           },
           scales: {
             y: {
-              beginAtZero: true,
-              grid: { 
-                color: 'rgba(255, 255, 255, 0.06)',
-                drawBorder: false
+              grid: { display: false },
+              ticks: {
+                color: '#f3f4f6',
+                font: { size: 12, weight: '500' },
+                padding: 10,
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0,
+                callback: (value, index) => tickLabel(fullLabels[index]),
               },
-              ticks: { 
-                color: '#9ca3af', 
-                font: { size: 10 },
-                stepSize: 2,
-                precision: 0
-              }
             },
             x: {
-              grid: { display: false },
-              ticks: { 
-                color: '#f3f4f6', 
-                font: { size: 10 },
-                maxRotation: 45,
-                minRotation: 45,
-                autoSkip: false
-              }
-            }
+              beginAtZero: true,
+              grid: { color: 'rgba(255,255,255,0.06)' },
+              ticks: {
+                color: '#9ca3af',
+                font: { size: 11 },
+                precision: 0,
+                stepSize: 1,
+                callback: (v) => (Number.isFinite(Number(v)) ? String(Math.round(Number(v))) : String(v)),
+              },
+            },
           },
-          // Custom plugin to draw count labels on top of bars
-          animation: {
-            onComplete: function() {
-              const chart = this;
-              const ctx = chart.ctx;
-              ctx.font = '10px Inter, sans-serif';
-              ctx.fillStyle = '#9ca3af';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'bottom';
-              
-              chart.data.datasets.forEach(function(dataset, i) {
-                const meta = chart.getDatasetMeta(i);
-                meta.data.forEach(function(bar, index) {
-                  const value = dataset.data[index];
-                  ctx.fillText(value, bar.x, bar.y - 5);
-                });
-              });
-            }
-          }
-        }
+        },
       });
     }
 
