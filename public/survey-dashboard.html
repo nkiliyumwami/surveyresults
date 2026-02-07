@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cybersecurity Survey Results Dashboard</title>
+  <meta name="description" content="Interactive survey results dashboard for Cybersecurity Mentorship Program" />
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    canvas { image-rendering: auto; }
+    
+    .gradient-hero {
+      background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%);
+    }
+    
+    .card-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .filter-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      padding-right: 2.5rem;
+    }
+    
+    .insight-bullet::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: linear-gradient(135deg, #0ea5e9, #0369a1);
+      border-radius: 50%;
+      margin-right: 12px;
+    }
+    
+    @media print {
+      .no-print { display: none !important; }
+      .print-break { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 antialiased">
+  <!-- Hero Header -->
+  <header class="gradient-hero text-white">
+    <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+              </svg>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Cybersecurity Mentorship Survey</h1>
+          </div>
+          <p id="heroSummary" class="text-base text-blue-100 max-w-2xl leading-relaxed">Loading summary...</p>
+        </div>
+        <div class="flex flex-col items-start gap-2 text-sm lg:items-end">
+          <div class="rounded-lg bg-white/10 backdrop-blur px-4 py-2">
+            <span class="text-blue-200">Last updated:</span>
+            <span id="lastUpdated" class="font-semibold ml-1">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <!-- Filters Row -->
+    <section class="mb-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 no-print">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <h2 class="text-base font-semibold flex items-center gap-2">
+          <svg class="h-5 w-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+          </svg>
+          Filter Results
+        </h2>
+        <button id="resetFilters" class="text-sm text-brand-600 hover:text-brand-700 font-medium transition-colors">
+          Reset all filters
+        </button>
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label for="filterCountry" class="block text-xs font-medium text-slate-500 mb-1.5">Country</label>
+          <select id="filterCountry" class="filter-select w-full rounded-lg border-slate-300 bg-slate-50 py-2.5 px-3 text-sm focus:border-brand-500 focus:ring-brand-500 border">
+            <option value="">All Countries</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterJourney" class="block text-xs font-medium text-slate-500 mb-1.5">Journey Stage</label>
+          <select id="filterJourney" class="filter-select w-full rounded-lg border-slate-300 bg-slate-50 py-2.5 px-3 text-sm focus:border-brand-500 focus:ring-brand-500 border">
+            <option value="">All Stages</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterRole" class="block text-xs font-medium text-slate-500 mb-1.5">Dream Role</label>
+          <select id="filterRole" class="filter-select w-full rounded-lg border-slate-300 bg-slate-50 py-2.5 px-3 text-sm focus:border-brand-500 focus:ring-brand-500 border">
+            <option value="">All Roles</option>
+          </select>
+        </div>
+        <div>
+          <label for="filterTime" class="block text-xs font-medium text-slate-500 mb-1.5">Time Commitment</label>
+          <select id="filterTime" class="filter-select w-full rounded-lg border-slate-300 bg-slate-50 py-2.5 px-3 text-sm focus:border-brand-500 focus:ring-brand-500 border">
+            <option value="">All Commitments</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 print-break">
+      <div class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100">
+            <svg class="h-5 w-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Responses</div>
+            <div id="kpiTotal" class="mt-0.5 text-2xl font-bold text-slate-900">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+            <svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Country</div>
+            <div id="kpiTopCountry" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopCountrySub" class="text-xs text-slate-500">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
+            <svg class="h-5 w-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Dream Role</div>
+            <div id="kpiTopRole" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopRoleSub" class="text-xs text-slate-500">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+            <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Roadblock</div>
+            <div id="kpiTopRoadblock" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopRoadblockSub" class="text-xs text-slate-500">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Insights Panel -->
+    <section class="mt-6 rounded-2xl bg-gradient-to-br from-brand-50 to-blue-50 p-6 ring-1 ring-brand-100 print-break">
+      <div class="flex items-center gap-2 mb-4">
+        <svg class="h-5 w-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        <h2 class="text-base font-semibold text-brand-900">Key Insights</h2>
+      </div>
+      <ul id="insightsList" class="space-y-2.5 text-sm text-slate-700">
+        <li class="insight-bullet">Loading insights...</li>
+      </ul>
+    </section>
+
+    <!-- Charts grid -->
+    <section class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2 print-break">
+      <!-- Journey -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Journey Stage Distribution</h2>
+          <span class="text-xs text-slate-400 font-medium">Count</span>
+        </div>
+        <div class="h-56">
+          <canvas id="chartJourney"></canvas>
+        </div>
+      </article>
+
+      <!-- Dream Role -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Dream Role Preferences</h2>
+          <span class="text-xs text-slate-400 font-medium">Count</span>
+        </div>
+        <div class="h-56">
+          <canvas id="chartRole"></canvas>
+        </div>
+      </article>
+
+      <!-- Roadblock -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Biggest Roadblocks</h2>
+          <span class="text-xs text-slate-400 font-medium">Count</span>
+        </div>
+        <div class="h-56">
+          <canvas id="chartRoadblock"></canvas>
+        </div>
+      </article>
+
+      <!-- Time Commitment -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Weekly Time Commitment</h2>
+          <span class="text-xs text-slate-400 font-medium">Count</span>
+        </div>
+        <div class="h-56">
+          <canvas id="chartTime"></canvas>
+        </div>
+      </article>
+
+      <!-- Country -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Country Distribution</h2>
+          <span class="text-xs text-slate-400 font-medium">Count</span>
+        </div>
+        <div class="h-48">
+          <canvas id="chartCountry"></canvas>
+        </div>
+      </article>
+
+      <!-- Certifications -->
+      <article class="card-hover rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-slate-900">Certification Interests</h2>
+          <span class="text-xs text-slate-400 font-medium">Frequency (multi-select)</span>
+        </div>
+        <div class="h-64">
+          <canvas id="chartCerts"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <!-- Share / Download Section -->
+    <section class="mt-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 no-print">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-slate-900">Share & Export</h2>
+          <p class="text-sm text-slate-500 mt-1">Download or share this dashboard</p>
+        </div>
+        <div class="flex gap-3">
+          <button id="btnPrint" class="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Print / PDF
+          </button>
+          <button id="btnCopy" class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+            </svg>
+            Copy Summary
+          </button>
+        </div>
+      </div>
+      <div id="copyFeedback" class="mt-3 hidden rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+        ✓ Summary copied to clipboard!
+      </div>
+    </section>
+
+    <!-- Suggestions -->
+    <section class="mt-8 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 print-break">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+          </svg>
+          <h2 class="text-base font-semibold text-slate-900">Suggestions & Requests</h2>
+          <span id="suggestionsCount" class="ml-2 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">—</span>
+        </div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center no-print">
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input type="text" id="searchSuggestions" placeholder="Search comments..." class="w-full sm:w-56 rounded-lg border border-slate-300 bg-slate-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:ring-brand-500" />
+          </div>
+          <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+            <input type="checkbox" id="toggleCommentsOnly" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+            <span>Show only with comments</span>
+          </label>
+        </div>
+      </div>
+      <div id="suggestions" class="space-y-3"></div>
+      <div id="noSuggestions" class="hidden py-8 text-center text-sm text-slate-500">
+        No matching suggestions found
+      </div>
+    </section>
+
+    <footer class="mt-10 text-center text-xs text-slate-400 pb-8">
+      <p>Cybersecurity Mentorship Survey Dashboard • Built with Tailwind CSS + Chart.js</p>
+    </footer>
+  </main>
+
+  <script>
+    // -------------------------
+    // 1) RAW DATA (emails anonymized)
+    // -------------------------
+    const responses = [
+      { timestamp: "2/5/2026 12:41:54", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Governance: GRC (Governance, Risk, and Compliance) / Auditing", roadblock: "Networking: I lack professional connections or mentorship", time: "Dedicated: 5–10 hours", country: "USA", certs: "Not Sure Yet", suggestion: "" },
+      { timestamp: "2/6/2026 16:44:27", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Focused: 2–5 hours", country: "Rwanda", certs: "ISC2 CC, CEH, RHCE", suggestion: "" },
+      { timestamp: "2/6/2026 16:48:17", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Focused: 2–5 hours", country: "Rwanda", certs: "ISC2 CC, Security+, CISSP, CEH, RedHat Certified System Admin", suggestion: "" },
+      { timestamp: "2/6/2026 16:52:40", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Networking: I lack professional connections or mentorship", time: "Focused: 2–5 hours", country: "Rwanda", certs: "ISC2 CC, Not sure yet", suggestion: "" },
+      { timestamp: "2/6/2026 16:52:52", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Theory Overload: I have certifications but struggle applying them", time: "Accelerated: 10+ hours", country: "Reanda", certs: "ISC2 CC, CISSP, CEH, Cloud Security Certifications, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "" },
+      { timestamp: "2/6/2026 16:54:45", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Offensive: Ethical Hacking / Penetration Testing", roadblock: "Career Guidance: I don't know how to navigate the job market or interviews", time: "Dedicated: 5–10 hours", country: "Rwanda", certs: "ISC2 CC, Security+, CISSP, CEH, Cloud Security Certifications, RHCSA, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer, Not sure yet", suggestion: "" },
+      { timestamp: "2/6/2026 16:55:28", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Offensive: Ethical Hacking / Penetration Testing", roadblock: "Networking: I lack professional connections or mentorship", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "CEH, Cloud Security Certifications, RHCSA", suggestion: "My suggestion would be to ask you for the opportunity to get more advanced certifications and hands on labs in penetration testing and also get some basics in cloud security if possible" },
+      { timestamp: "2/6/2026 16:55:54", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Career Guidance: I don't know how to navigate the job market or interviews", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "ISC2 CC, Security+, CEH, Cloud Security Certifications", suggestion: "Great job to Petero! Many thanks for this mentorship program" },
+      { timestamp: "2/6/2026 16:58:13", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Dedicated: 5–10 hours", country: "Rwanda", certs: "Security+, CISSP, Cloud Security Certifications", suggestion: "" },
+      { timestamp: "2/6/2026 16:59:23", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Offensive: Ethical Hacking / Penetration Testing", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Focused: 2–5 hours", country: "Rwanda", certs: "CEH", suggestion: "" },
+      { timestamp: "2/6/2026 17:05:11", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Governance: GRC (Governance, Risk, and Compliance) / Auditing", roadblock: "Career Guidance: I don't know how to navigate the job market or interviews", time: "Focused: 2–5 hours", country: "USA", certs: "Not sure yet", suggestion: "" },
+      { timestamp: "2/6/2026 17:06:41", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Dedicated: 5–10 hours", country: "Canada", certs: "Not sure yet", suggestion: "I would prefer hands on project/work from zero to mastery... Thank you in advance" },
+      { timestamp: "2/6/2026 17:07:33", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "ISC2 CC, Security+, Cloud Security Certifications", suggestion: "As a request I would like guidance in building practical cybersecurity skills, learning security tools , preparing for certifications and developing a strong career path in the field .  Thank you" },
+      { timestamp: "2/6/2026 17:08:17", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Networking: I lack professional connections or mentorship", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "Security+, CISSP, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "" },
+      { timestamp: "2/6/2026 17:14:05", email: "", journey: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Networking: I lack professional connections or mentorship", time: "Dedicated: 5–10 hours", country: "Rwanda", certs: "ISC2 CC, CISSP, Cloud Security Certifications, RHCSA, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "I come from a background in developing web-based applications, and I believe that considering the importance of cybersecurity today, it would be wise to start focusing on creating security solutions. This way, I can keep my developer portfolio aligned with the capability to provide and maintain secure systems.   I am seeking your mentorship to help align this focus.   I am also in the final stages of completing my Google IT Support Professional certification." },
+      { timestamp: "2/6/2026 17:18:15", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Dedicated: 5–10 hours", country: "Rwanda", certs: "ISC2 CC, Security+, Cloud Security Certifications, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "Thank you" },
+      { timestamp: "2/6/2026 17:18:27", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Defensive: Incident Response / SOC Analyst / Threat Hunting", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Dedicated: 5–10 hours", country: "USA", certs: "ISC2 CC, Security+, CISSP, CEH, Cloud Security Certifications, RHCSA, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "" },
+      { timestamp: "2/6/2026 17:26:56", email: "", journey: "Absolute Beginner: I am just starting and have no IT/Security background.", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Accelerated: 10+ hours", country: "Canada", certs: "ISC2 CC, Security+, CISSP, CEH, Cloud Security Certifications, RHCSA, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer", suggestion: "I have a bachelor in bit business information technology but since 2017 got the degree I have never worked in any IT career , I would like to switch to any IT career" },
+      { timestamp: "2/6/2026 17:47:20", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Offensive: Ethical Hacking / Penetration Testing", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Accelerated: 10+ hours", country: "Russia", certs: "CEH, RHCSA, RHCE, RedHat Certified System Admin, RedHat Certified System Engineer, Not sure yet", suggestion: "" },
+      { timestamp: "2/6/2026 18:25:05", email: "", journey: "Security Professional: I already work in Security but want to level up my advanced skills.", role: "Governance: GRC (Governance, Risk, and Compliance) / Auditing", roadblock: "Technical Skills: I struggle with hands-on tools", time: "Focused: 2–5 hours", country: "USA", certs: "Not sure yet", suggestion: "N/A" },
+      { timestamp: "2/6/2026 18:37:14", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Networking: I lack professional connections or mentorship", time: "Dedicated: 5–10 hours", country: "Rwanda", certs: "Security+, Cloud Security Certifications, Not sure yet", suggestion: "" },
+      { timestamp: "2/6/2026 18:58:14", email: "", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Networking: I lack professional connections or mentorship", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "Security+, CEH, Cloud Security Certifications, RHCE, RedHat Certified System Engineer", suggestion: "" }
+    ];
+
+    // -------------------------
+    // 2) COUNTRY NORMALIZATION
+    // -------------------------
+    const countryNormalization = {
+      "Reanda": "Rwanda",
+      "reanda": "Rwanda"
+    };
+    
+    function normalizeCountry(country) {
+      const trimmed = (country ?? "").toString().trim();
+      return countryNormalization[trimmed] || trimmed;
+    }
+
+    // -------------------------
+    // 3) HELPERS
+    // -------------------------
+    const normalize = (s) => (s ?? "").toString().trim();
+    
+    function getShortLabel(fullLabel) {
+      const colonIndex = fullLabel.indexOf(':');
+      return colonIndex > -1 ? fullLabel.substring(0, colonIndex).trim() : fullLabel;
+    }
+
+    function parseTimestampToDate(ts) {
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function countBy(items, keyFn) {
+      const map = new Map();
+      for (const it of items) {
+        const k = normalize(keyFn(it)) || "—";
+        map.set(k, (map.get(k) || 0) + 1);
+      }
+      return map;
+    }
+
+    function mapToSortedPairs(map, { limit = null } = {}) {
+      const pairs = [...map.entries()].sort((a, b) => b[1] - a[1]);
+      return limit ? pairs.slice(0, limit) : pairs;
+    }
+
+    function top1(map) {
+      const pairs = mapToSortedPairs(map, { limit: 1 });
+      return pairs.length ? { label: pairs[0][0], value: pairs[0][1] } : { label: "—", value: 0 };
+    }
+
+    function getPercentage(value, total) {
+      return total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+    }
+
+    // -------------------------
+    // 4) CHART BUILDING
+    // -------------------------
+    const chartInstances = {};
+    const brandColors = ['#0ea5e9', '#06b6d4', '#14b8a6', '#10b981', '#22c55e', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#a855f7'];
+
+    function buildHorizontalBarChart(canvasId, labels, values, total) {
+      const ctx = document.getElementById(canvasId);
+      if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+      }
+      
+      const shortLabels = labels.map(l => getShortLabel(l));
+      
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: shortLabels,
+          datasets: [{
+            label: "Count",
+            data: values,
+            backgroundColor: brandColors.slice(0, values.length).map(c => c + 'cc'),
+            borderColor: brandColors.slice(0, values.length),
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              titleFont: { size: 13, weight: '600' },
+              bodyFont: { size: 12 },
+              padding: 12,
+              cornerRadius: 8,
+              callbacks: {
+                label: function(context) {
+                  const value = context.raw;
+                  const pct = getPercentage(value, total);
+                  return `${value} responses (${pct}%)`;
+                },
+                title: function(context) {
+                  return labels[context[0].dataIndex];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#64748b', font: { size: 11 } },
+              grid: { color: '#f1f5f9' }
+            },
+            y: {
+              ticks: { color: '#334155', font: { size: 11, weight: '500' } },
+              grid: { display: false }
+            }
+          }
+        },
+        plugins: [{
+          id: 'dataLabels',
+          afterDatasetsDraw: function(chart) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, i) => {
+              const meta = chart.getDatasetMeta(i);
+              meta.data.forEach((bar, index) => {
+                const data = dataset.data[index];
+                const pct = getPercentage(data, total);
+                ctx.fillStyle = '#475569';
+                ctx.font = '500 11px Inter, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${data} (${pct}%)`, bar.x + 6, bar.y);
+              });
+            });
+          }
+        }]
+      });
+      return chartInstances[canvasId];
+    }
+
+    function buildVerticalBarChart(canvasId, labels, values, total) {
+      const ctx = document.getElementById(canvasId);
+      if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+      }
+      
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Count",
+            data: values,
+            backgroundColor: brandColors.slice(0, values.length).map(c => c + 'cc'),
+            borderColor: brandColors.slice(0, values.length),
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e293b',
+              titleFont: { size: 13, weight: '600' },
+              bodyFont: { size: 12 },
+              padding: 12,
+              cornerRadius: 8,
+              callbacks: {
+                label: function(context) {
+                  const value = context.raw;
+                  const pct = getPercentage(value, total);
+                  return `${value} responses (${pct}%)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#334155', font: { size: 11 }, maxRotation: 45, minRotation: 0 },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#64748b', font: { size: 11 } },
+              grid: { color: '#f1f5f9' }
+            }
+          }
+        },
+        plugins: [{
+          id: 'dataLabels',
+          afterDatasetsDraw: function(chart) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((dataset, i) => {
+              const meta = chart.getDatasetMeta(i);
+              meta.data.forEach((bar, index) => {
+                const data = dataset.data[index];
+                ctx.fillStyle = '#475569';
+                ctx.font = '500 10px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(data, bar.x, bar.y - 4);
+              });
+            });
+          }
+        }]
+      });
+      return chartInstances[canvasId];
+    }
+
+    // -------------------------
+    // 5) STATE & FILTERS
+    // -------------------------
+    let currentFilters = { country: '', journey: '', role: '', time: '' };
+    let allCountries = [];
+    let allJourneys = [];
+    let allRoles = [];
+    let allTimes = [];
+
+    function getFilteredResponses() {
+      return responses.filter(r => {
+        const normalizedCountry = normalizeCountry(r.country);
+        if (currentFilters.country && normalizedCountry !== currentFilters.country) return false;
+        if (currentFilters.journey && normalize(r.journey) !== currentFilters.journey) return false;
+        if (currentFilters.role && normalize(r.role) !== currentFilters.role) return false;
+        if (currentFilters.time && normalize(r.time) !== currentFilters.time) return false;
+        return true;
+      });
+    }
+
+    function populateFilters() {
+      const countrySet = new Set();
+      const journeySet = new Set();
+      const roleSet = new Set();
+      const timeSet = new Set();
+
+      responses.forEach(r => {
+        countrySet.add(normalizeCountry(r.country));
+        journeySet.add(normalize(r.journey));
+        roleSet.add(normalize(r.role));
+        timeSet.add(normalize(r.time));
+      });
+
+      allCountries = [...countrySet].sort();
+      allJourneys = [...journeySet].sort();
+      allRoles = [...roleSet].sort();
+      allTimes = [...timeSet].sort();
+
+      const countrySelect = document.getElementById('filterCountry');
+      const journeySelect = document.getElementById('filterJourney');
+      const roleSelect = document.getElementById('filterRole');
+      const timeSelect = document.getElementById('filterTime');
+
+      allCountries.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        countrySelect.appendChild(opt);
+      });
+
+      allJourneys.forEach(j => {
+        const opt = document.createElement('option');
+        opt.value = j;
+        opt.textContent = getShortLabel(j);
+        journeySelect.appendChild(opt);
+      });
+
+      allRoles.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = getShortLabel(r);
+        roleSelect.appendChild(opt);
+      });
+
+      allTimes.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = getShortLabel(t);
+        timeSelect.appendChild(opt);
+      });
+    }
+
+    // -------------------------
+    // 6) INSIGHTS GENERATOR
+    // -------------------------
+    function generateInsights(filtered, total) {
+      const insights = [];
+      
+      const byRole = countBy(filtered, r => r.role);
+      const topRole = top1(byRole);
+      if (topRole.value > 0) {
+        const pct = getPercentage(topRole.value, total);
+        insights.push(`<strong>${getShortLabel(topRole.label)}</strong> roles dominate interest with ${topRole.value} responses (${pct}%)`);
+      }
+
+      const byRoadblock = countBy(filtered, r => r.roadblock);
+      const topRoadblock = top1(byRoadblock);
+      if (topRoadblock.value > 0) {
+        const pct = getPercentage(topRoadblock.value, total);
+        insights.push(`"<strong>${getShortLabel(topRoadblock.label)}</strong>" is the most common challenge (${pct}%)`);
+      }
+
+      const byJourney = countBy(filtered, r => r.journey);
+      const journeyPairs = mapToSortedPairs(byJourney);
+      const itPros = filtered.filter(r => r.journey.includes('IT Professional')).length;
+      if (itPros > 0) {
+        const pct = getPercentage(itPros, total);
+        insights.push(`<strong>${itPros} IT professionals</strong> (${pct}%) are looking to pivot into security`);
+      }
+
+      const beginners = filtered.filter(r => r.journey.includes('Absolute Beginner')).length;
+      if (beginners > 0) {
+        const pct = getPercentage(beginners, total);
+        insights.push(`<strong>${beginners} absolute beginners</strong> (${pct}%) are starting their security journey`);
+      }
+
+      const byTime = countBy(filtered, r => r.time);
+      const accelerated = filtered.filter(r => r.time.includes('10+')).length;
+      if (accelerated > 0) {
+        const pct = getPercentage(accelerated, total);
+        insights.push(`<strong>${accelerated} respondents</strong> (${pct}%) commit 10+ hours weekly—highly motivated learners`);
+      }
+
+      const byCountry = countBy(filtered, r => normalizeCountry(r.country));
+      const countryCount = byCountry.size;
+      if (countryCount > 1) {
+        insights.push(`Responses come from <strong>${countryCount} different countries</strong>, showing global interest`);
+      }
+
+      return insights.slice(0, 5);
+    }
+
+    // -------------------------
+    // 7) MAIN RENDER
+    // -------------------------
+    function render() {
+      const filtered = getFilteredResponses();
+      const total = filtered.length;
+
+      // KPIs
+      document.getElementById('kpiTotal').textContent = total.toString();
+
+      const byCountry = countBy(filtered, r => normalizeCountry(r.country));
+      const byRole = countBy(filtered, r => r.role);
+      const byRoadblock = countBy(filtered, r => r.roadblock);
+      const byJourney = countBy(filtered, r => r.journey);
+      const byTime = countBy(filtered, r => r.time);
+
+      const topCountry = top1(byCountry);
+      document.getElementById('kpiTopCountry').textContent = topCountry.label;
+      document.getElementById('kpiTopCountrySub').textContent = `${topCountry.value} of ${total}`;
+
+      const topRole = top1(byRole);
+      document.getElementById('kpiTopRole').textContent = getShortLabel(topRole.label);
+      document.getElementById('kpiTopRoleSub').textContent = `${topRole.value} of ${total}`;
+
+      const topRoadblock = top1(byRoadblock);
+      document.getElementById('kpiTopRoadblock').textContent = getShortLabel(topRoadblock.label);
+      document.getElementById('kpiTopRoadblockSub').textContent = `${topRoadblock.value} of ${total}`;
+
+      // Hero summary
+      const heroSummary = `${total} responses collected from ${byCountry.size} countries. Most aspire to ${getShortLabel(topRole.label).toLowerCase()} roles, with "${getShortLabel(topRoadblock.label).toLowerCase()}" as the primary challenge.`;
+      document.getElementById('heroSummary').textContent = heroSummary;
+
+      // Charts
+      const journeyPairs = mapToSortedPairs(byJourney);
+      buildHorizontalBarChart('chartJourney', journeyPairs.map(p => p[0]), journeyPairs.map(p => p[1]), total);
+
+      const rolePairs = mapToSortedPairs(byRole);
+      buildHorizontalBarChart('chartRole', rolePairs.map(p => p[0]), rolePairs.map(p => p[1]), total);
+
+      const roadPairs = mapToSortedPairs(byRoadblock);
+      buildHorizontalBarChart('chartRoadblock', roadPairs.map(p => p[0]), roadPairs.map(p => p[1]), total);
+
+      const timePairs = mapToSortedPairs(byTime);
+      buildHorizontalBarChart('chartTime', timePairs.map(p => p[0]), timePairs.map(p => p[1]), total);
+
+      const countryPairs = mapToSortedPairs(byCountry);
+      buildVerticalBarChart('chartCountry', countryPairs.map(p => p[0]), countryPairs.map(p => p[1]), total);
+
+      // Certifications
+      const certMap = new Map();
+      for (const r of filtered) {
+        const raw = normalize(r.certs);
+        if (!raw) continue;
+        const parts = raw.split(',').map(s => normalize(s)).filter(Boolean);
+        for (const c of parts) {
+          const key = c || '—';
+          certMap.set(key, (certMap.get(key) || 0) + 1);
+        }
+      }
+      const certPairs = mapToSortedPairs(certMap, { limit: 12 });
+      buildVerticalBarChart('chartCerts', certPairs.map(p => p[0]), certPairs.map(p => p[1]), total);
+
+      // Insights
+      const insights = generateInsights(filtered, total);
+      const insightsList = document.getElementById('insightsList');
+      if (insights.length > 0) {
+        insightsList.innerHTML = insights.map(i => `<li class="insight-bullet">${i}</li>`).join('');
+      } else {
+        insightsList.innerHTML = '<li class="insight-bullet">No data available for current filters</li>';
+      }
+
+      // Suggestions
+      renderSuggestions(filtered);
+    }
+
+    function renderSuggestions(filtered) {
+      const searchQuery = document.getElementById('searchSuggestions').value.toLowerCase();
+      const commentsOnly = document.getElementById('toggleCommentsOnly').checked;
+
+      let suggestionRows = filtered.map(r => ({
+        ...r,
+        country: normalizeCountry(r.country),
+        hasSuggestion: normalize(r.suggestion) && normalize(r.suggestion).toLowerCase() !== 'n/a'
+      }));
+
+      if (commentsOnly) {
+        suggestionRows = suggestionRows.filter(r => r.hasSuggestion);
+      }
+
+      if (searchQuery) {
+        suggestionRows = suggestionRows.filter(r => 
+          (r.suggestion && r.suggestion.toLowerCase().includes(searchQuery)) ||
+          r.role.toLowerCase().includes(searchQuery) ||
+          r.country.toLowerCase().includes(searchQuery)
+        );
+      }
+
+      const withComments = suggestionRows.filter(r => r.hasSuggestion).length;
+      document.getElementById('suggestionsCount').textContent = `${withComments} with comments`;
+
+      const container = document.getElementById('suggestions');
+      const noResults = document.getElementById('noSuggestions');
+      container.innerHTML = '';
+
+      if (suggestionRows.length === 0) {
+        noResults.classList.remove('hidden');
+        return;
+      }
+      noResults.classList.add('hidden');
+
+      for (const r of suggestionRows) {
+        const card = document.createElement('div');
+        card.className = 'rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-slate-100';
+
+        const meta = document.createElement('div');
+        meta.className = 'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between';
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2';
+        
+        const roleBadge = document.createElement('span');
+        roleBadge.className = 'inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700';
+        roleBadge.textContent = getShortLabel(r.role);
+        left.appendChild(roleBadge);
+
+        const right = document.createElement('div');
+        right.className = 'flex flex-wrap items-center gap-2 text-xs text-slate-500';
+        right.innerHTML = `
+          <span class="inline-flex items-center gap-1">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            ${r.country}
+          </span>
+          <span>•</span>
+          <span>${getShortLabel(r.time)}</span>
+          <span>•</span>
+          <span>${r.timestamp.split(' ')[0]}</span>
+        `;
+
+        meta.appendChild(left);
+        meta.appendChild(right);
+        card.appendChild(meta);
+
+        if (r.hasSuggestion) {
+          const body = document.createElement('p');
+          body.className = 'mt-3 text-sm text-slate-700 leading-relaxed';
+          body.textContent = r.suggestion;
+          card.appendChild(body);
+        } else {
+          const noComment = document.createElement('p');
+          noComment.className = 'mt-3 text-sm text-slate-400 italic';
+          noComment.textContent = 'No comment provided';
+          card.appendChild(noComment);
+        }
+
+        container.appendChild(card);
+      }
+    }
+
+    // -------------------------
+    // 8) EVENT LISTENERS
+    // -------------------------
+    document.getElementById('filterCountry').addEventListener('change', (e) => {
+      currentFilters.country = e.target.value;
+      render();
+    });
+    document.getElementById('filterJourney').addEventListener('change', (e) => {
+      currentFilters.journey = e.target.value;
+      render();
+    });
+    document.getElementById('filterRole').addEventListener('change', (e) => {
+      currentFilters.role = e.target.value;
+      render();
+    });
+    document.getElementById('filterTime').addEventListener('change', (e) => {
+      currentFilters.time = e.target.value;
+      render();
+    });
+
+    document.getElementById('resetFilters').addEventListener('click', () => {
+      currentFilters = { country: '', journey: '', role: '', time: '' };
+      document.getElementById('filterCountry').value = '';
+      document.getElementById('filterJourney').value = '';
+      document.getElementById('filterRole').value = '';
+      document.getElementById('filterTime').value = '';
+      document.getElementById('searchSuggestions').value = '';
+      document.getElementById('toggleCommentsOnly').checked = false;
+      render();
+    });
+
+    document.getElementById('searchSuggestions').addEventListener('input', () => {
+      renderSuggestions(getFilteredResponses());
+    });
+
+    document.getElementById('toggleCommentsOnly').addEventListener('change', () => {
+      renderSuggestions(getFilteredResponses());
+    });
+
+    document.getElementById('btnPrint').addEventListener('click', () => {
+      window.print();
+    });
+
+    document.getElementById('btnCopy').addEventListener('click', () => {
+      const filtered = getFilteredResponses();
+      const total = filtered.length;
+      const byCountry = countBy(filtered, r => normalizeCountry(r.country));
+      const byRole = countBy(filtered, r => r.role);
+      const byRoadblock = countBy(filtered, r => r.roadblock);
+
+      const topCountry = top1(byCountry);
+      const topRole = top1(byRole);
+      const topRoadblock = top1(byRoadblock);
+
+      const insights = generateInsights(filtered, total);
+      
+      const summary = `CYBERSECURITY MENTORSHIP SURVEY SUMMARY
+==========================================
+
+📊 KEY METRICS
+• Total Responses: ${total}
+• Top Country: ${topCountry.label} (${topCountry.value} responses)
+• Top Dream Role: ${getShortLabel(topRole.label)} (${topRole.value} responses)
+• Top Roadblock: ${getShortLabel(topRoadblock.label)} (${topRoadblock.value} responses)
+
+💡 KEY INSIGHTS
+${insights.map(i => '• ' + i.replace(/<\/?strong>/g, '')).join('\n')}
+
+==========================================
+Generated from Cybersecurity Mentorship Survey Dashboard`;
+
+      navigator.clipboard.writeText(summary).then(() => {
+        const feedback = document.getElementById('copyFeedback');
+        feedback.classList.remove('hidden');
+        setTimeout(() => feedback.classList.add('hidden'), 3000);
+      });
+    });
+
+    // -------------------------
+    // 9) INIT
+    // -------------------------
+    function init() {
+      // Last updated
+      const dates = responses.map(r => parseTimestampToDate(r.timestamp)).filter(Boolean);
+      const last = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
+      document.getElementById('lastUpdated').textContent = last ? last.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+
+      populateFilters();
+      render();
+    }
+
+    init();
+  </script>
+</body>
+</html>
