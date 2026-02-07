@@ -35,16 +35,41 @@ export const surveyResponses: SurveyResponse[] = [
   { timestamp: "2/6/2026 18:58:14", journey: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).", role: "Architecture: Cloud Security / Security Engineering", roadblock: "Networking: I lack professional connections or mentorship", time: "Accelerated: 10+ hours", country: "Rwanda", certs: "Security+, CEH, Cloud Security Certifications, RHCE, RedHat Certified System Engineer", suggestion: "" }
 ];
 
-// Country normalization map
-const countryNormalization: Record<string, string> = {
-  "Reanda": "Rwanda",
-  "reanda": "Rwanda"
+// Canonical country aliases (all keys MUST be lowercase)
+const COUNTRY_ALIASES: Record<string, string> = {
+  // Rwanda
+  "rwanda": "Rwanda",
+  "reanda": "Rwanda",
+
+  // United States
+  "us": "United States",
+  "usa": "United States",
+  "u s a": "United States",
+  "u.s.": "United States",
+  "united states": "United States",
+  "united states of america": "United States",
+
+  // Canada
+  "canada": "Canada"
 };
 
 export function normalizeCountry(country: string): string {
-  const trimmed = (country ?? "").toString().trim();
-  return countryNormalization[trimmed] || trimmed;
+  if (!country) return "Unknown";
+
+  const cleaned = country
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")   // remove punctuation
+    .replace(/\s+/g, " ");     // collapse spaces
+
+  return COUNTRY_ALIASES[cleaned] || toTitleCase(cleaned);
 }
+
+function toTitleCase(value: string): string {
+  return value.replace(/\b\w/g, char => char.toUpperCase());
+}
+
 
 export function getShortLabel(fullLabel: string): string {
   const colonIndex = fullLabel.indexOf(':');
