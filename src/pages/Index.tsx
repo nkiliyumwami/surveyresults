@@ -203,9 +203,9 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
     <div className="min-h-screen bg-background">
       {/* Background effects */}
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[500px] w-[800px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[300px] sm:h-[500px] w-[400px] sm:w-[800px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
-      <main className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="relative mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
         {/* Header */}
         <DashboardHeader
           totalResponses={metrics.total}
@@ -217,7 +217,7 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
         />
 
         {/* Filters */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <FilterBar
             filters={filters}
             onFilterChange={handleFilterChange}
@@ -235,7 +235,7 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          className="mt-4 sm:mt-6 grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4"
         >
           <KPICard
             title="Total Responses"
@@ -276,69 +276,73 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
         </motion.div>
 
         {/* Insights */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <InsightsPanel insights={insights} delay={0.3} />
         </div>
 
         {/* Charts Grid */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="mt-4 sm:mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
           <ChartCard
             title="Journey Stage Distribution"
             data={chartData.journey}
             total={metrics.total}
             delay={0.4}
+            height={200}
           />
           <ChartCard
             title="Dream Role Preferences"
             data={chartData.role}
             total={metrics.total}
             delay={0.5}
+            height={180}
           />
           <ChartCard
             title="Biggest Roadblocks"
             data={chartData.roadblock}
             total={metrics.total}
             delay={0.6}
+            height={180}
           />
           <ChartCard
             title="Weekly Time Commitment"
             data={chartData.time}
             total={metrics.total}
             delay={0.7}
+            height={160}
           />
         </div>
 
         {/* Country Chart - Full Width */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <ChartCard
             title="Country Distribution"
             data={chartData.country}
             total={metrics.total}
             horizontal={false}
             delay={0.8}
-            height={180}
+            height={200}
           />
         </div>
 
         {/* Certifications Chart - Full Width */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <ChartCard
             title="Top Certification Interests"
             data={chartData.certs}
             total={metrics.total}
             horizontal={false}
             delay={0.9}
-            height={250}
+            height={280}
           />
         </div>
 
         {/* Share Panel */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <SharePanel summaryText={summaryText} delay={1.0} />
         </div>
 
         {/* Suggestions */}
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           <SuggestionsPanel responses={filteredResponses} delay={1.1} />
         </div>
 
@@ -347,10 +351,10 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 1.2 }}
-          className="mt-10 pb-8 text-center"
+          className="mt-6 sm:mt-10 pb-6 sm:pb-8 text-center"
         >
-          <p className="text-xs text-muted-foreground">
-            Cybersecurity Mentorship Survey Dashboard • Built with React + Recharts
+          <p className="text-[10px] sm:text-xs text-muted-foreground">
+            Cybersecurity Mentorship Survey Dashboard
           </p>
         </motion.footer>
       </main>
