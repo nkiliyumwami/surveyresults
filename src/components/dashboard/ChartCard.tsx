@@ -30,15 +30,23 @@ const CHART_COLORS = [
   "hsl(200, 80%, 50%)",
   "hsl(160, 70%, 45%)",
   "hsl(300, 60%, 55%)",
+  "hsl(220, 70%, 55%)",
+  "hsl(280, 65%, 50%)",
 ];
+
+// Truncate label for display but keep full name for tooltip
+function truncateLabel(label: string, maxLength: number = 15): string {
+  if (label.length <= maxLength) return label;
+  return label.substring(0, maxLength - 2) + "...";
+}
 
 export function ChartCard({ title, data, total, horizontal = true, delay = 0, height = 220 }: ChartCardProps) {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
-        <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-xl">
-          <p className="text-xs font-medium text-foreground">{item.fullName}</p>
+        <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-xl max-w-xs z-50">
+          <p className="text-xs font-medium text-foreground break-words">{item.fullName}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {item.value} responses ({getPercentage(item.value, total)}%)
           </p>
@@ -48,16 +56,24 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
     return null;
   };
 
+  // Prepare data with truncated labels for vertical bar charts
+  const chartData = horizontal 
+    ? data 
+    : data.map(item => ({
+        ...item,
+        displayName: truncateLabel(item.name, 12),
+      }));
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      className="card-cyber p-5"
+      className="card-cyber p-3 sm:p-5"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <span className="text-xs text-muted-foreground">Count</span>
+      <div className="mb-3 sm:mb-4 flex items-center justify-between">
+        <h3 className="text-xs sm:text-sm font-semibold text-foreground">{title}</h3>
+        <span className="text-[10px] sm:text-xs text-muted-foreground">Count</span>
       </div>
 
       <div className="chart-container" style={{ height }}>
@@ -66,20 +82,26 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
             <BarChart
               data={data}
               layout="vertical"
-              margin={{ top: 5, right: 50, left: 10, bottom: 5 }}
+              margin={{ top: 5, right: 60, left: 5, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 17%)" horizontal={false} />
-              <XAxis type="number" tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <XAxis 
+                type="number" 
+                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false} 
+              />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fill: "hsl(210, 40%, 98%)", fontSize: 11 }}
+                tick={{ fill: "hsl(210, 40%, 98%)", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                width={100}
+                width={90}
+                tickFormatter={(value) => truncateLabel(value, 12)}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
                 {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
@@ -87,34 +109,43 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
                   dataKey="value"
                   position="right"
                   fill="hsl(215, 20%, 55%)"
-                  fontSize={11}
+                  fontSize={9}
                   formatter={(value: number) => `${value} (${getPercentage(value, total)}%)`}
                 />
               </Bar>
             </BarChart>
           ) : (
-            <BarChart data={data} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+            <BarChart 
+              data={chartData} 
+              margin={{ top: 25, right: 5, left: 5, bottom: 80 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 17%)" vertical={false} />
               <XAxis
-                dataKey="name"
-                tick={{ fill: "hsl(210, 40%, 98%)", fontSize: 10 }}
+                dataKey="displayName"
+                tick={{ fill: "hsl(210, 40%, 98%)", fontSize: 9 }}
                 axisLine={false}
                 tickLine={false}
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={80}
+                interval={0}
               />
-              <YAxis tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis 
+                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }} 
+                axisLine={false} 
+                tickLine={false}
+                width={30}
+              />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                {data.map((_, index) => (
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={35}>
+                {chartData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
                 <LabelList
                   dataKey="value"
                   position="top"
                   fill="hsl(215, 20%, 55%)"
-                  fontSize={10}
+                  fontSize={9}
                 />
               </Bar>
             </BarChart>
