@@ -16,7 +16,7 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { SuggestionsPanel } from "@/components/dashboard/SuggestionsPanel";
-import { SharePanel } from "@/components/dashboard/SharePanel";
+//import { SharePanel } from "@/components/dashboard/SharePanel";
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec';
 const REFRESH_INTERVAL = 60000; // 60 seconds
@@ -454,10 +454,10 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
           />
         </div>
 
-        {/* Share Panel */}
+        {/* Share Panel 
         <div className="mt-4 sm:mt-6">
           <SharePanel summaryText={summaryText} delay={1.0} />
-        </div>
+        </div>*/}
 
         {/* Suggestions */}
         <div className="mt-4 sm:mt-6">
