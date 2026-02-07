@@ -313,9 +313,10 @@
           <h3 class="text-xs sm:text-sm font-semibold text-white">Countries</h3>
           <span class="text-[10px] sm:text-xs text-gray-500">Geographic Distribution</span>
         </div>
-        <div class="relative h-56 sm:h-64">
+        <div id="chartCountriesContainer" class="relative" style="min-height: 160px;">
           <canvas id="chartCountries"></canvas>
           <div id="chartCountriesLoading" class="skeleton absolute inset-0"></div>
+          <div id="chartCountriesEmpty" class="hidden absolute inset-0 flex items-center justify-center text-gray-500 text-sm">No country data available</div>
         </div>
       </div>
 
@@ -616,6 +617,92 @@
       });
     }
 
+    // Country Distribution Chart - optimized for readability
+    function createCountryChart(labels, data, total, fullLabels) {
+      const canvasId = 'chartCountries';
+      destroyChart(canvasId);
+      hideLoading(canvasId);
+      
+      const canvas = document.getElementById(canvasId);
+      const container = document.getElementById('chartCountriesContainer');
+      const emptyEl = document.getElementById('chartCountriesEmpty');
+      
+      if (!canvas || !container) return;
+
+      // Handle empty data
+      if (!labels || labels.length === 0 || data.length === 0) {
+        canvas.style.display = 'none';
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        container.style.height = '160px';
+        return;
+      }
+
+      // Show canvas, hide empty message
+      canvas.style.display = 'block';
+      if (emptyEl) emptyEl.classList.add('hidden');
+
+      // Dynamic height: clamp(labelCount * 32 + 60, 160, 520)
+      const labelCount = labels.length;
+      const dynamicHeight = Math.min(Math.max(labelCount * 32 + 60, 160), 520);
+      container.style.height = dynamicHeight + 'px';
+
+      charts[canvasId] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: fullLabels, // Use full labels, no truncation
+          datasets: [{
+            data: data,
+            backgroundColor: CHART_COLORS.slice(0, data.length),
+            borderRadius: 4,
+            barThickness: 22,
+          }]
+        },
+        options: {
+          indexAxis: 'y', // Horizontal bar
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: { left: 5, right: 15, top: 10, bottom: 10 }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => fullLabels[items[0].dataIndex],
+                label: (item) => `${item.raw} responses (${getPercentage(item.raw, total)}%)`
+              },
+              backgroundColor: 'rgba(30, 41, 59, 0.95)',
+              titleColor: '#fff',
+              bodyColor: '#e2e8f0',
+              titleFont: { size: 13, weight: 'bold' },
+              bodyFont: { size: 12 },
+              padding: 10,
+              cornerRadius: 6
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { 
+                color: '#9ca3af', 
+                font: { size: 11 },
+                stepSize: 1
+              },
+              beginAtZero: true
+            },
+            y: {
+              grid: { display: false },
+              ticks: { 
+                color: '#f3f4f6', 
+                font: { size: 12, weight: '500' },
+                padding: 8
+              }
+            }
+          }
+        }
+      });
+    }
+
     // ========================
     // UI Rendering
     // ========================
@@ -680,7 +767,7 @@
       createVerticalBarChart('chartTime', timePairs.map(p => p[0]), timePairs.map(p => p[1]), total, timePairs.map(p => p[0]));
 
       const countryPairs = mapToSortedPairs(countryMap);
-      createVerticalBarChart('chartCountries', countryPairs.map(p => p[0]), countryPairs.map(p => p[1]), total, countryPairs.map(p => p[0]));
+      createCountryChart(countryPairs.map(p => p[0]), countryPairs.map(p => p[1]), total, countryPairs.map(p => p[0]));
 
       const certPairs = mapToSortedPairs(certMap, 10);
       createHorizontalBarChart('chartCerts', certPairs.map(p => p[0]), certPairs.map(p => p[1]), total, certPairs.map(p => p[0]));
