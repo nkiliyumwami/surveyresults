@@ -1,15 +1,14 @@
-import { useState, useMemo } from "react";
-import { Users, Globe, Briefcase, AlertTriangle } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Users, Globe, Briefcase, AlertTriangle, Wifi, WifiOff } from "lucide-react";
 import { motion } from "framer-motion";
 import {
-  surveyResponses,
+  SurveyResponse,
   normalizeCountry,
   getShortLabel,
   countBy,
   mapToSortedPairs,
   top1,
   getPercentage,
-  getLastUpdated,
 } from "@/data/surveyData";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { FilterBar, Filters } from "@/components/dashboard/FilterBar";
@@ -19,13 +18,93 @@ import { ChartCard } from "@/components/dashboard/ChartCard";
 import { SuggestionsPanel } from "@/components/dashboard/SuggestionsPanel";
 import { SharePanel } from "@/components/dashboard/SharePanel";
 
+const API_URL = 'https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec';
+const REFRESH_INTERVAL = 60000; // 60 seconds
+
+interface ApiResponse {
+  ok: boolean;
+  updatedAt: string;
+  total: number;
+  responses: SurveyResponse[];
+}
+
+async function fetchJsonSafely<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  
+  const contentType = response.headers.get("content-type");
+  
+  if (!contentType?.includes("application/json")) {
+    const textResponse = await response.text();
+    console.error("Expected JSON but got:", contentType);
+    console.error("Response preview:", textResponse.substring(0, 200));
+    
+    if (textResponse.trim().startsWith("<!") || textResponse.includes("<html")) {
+      throw new Error(
+        `API returned HTML instead of JSON. Status: ${response.status}`
+      );
+    }
+    
+    throw new Error(`Unexpected response format: ${contentType}`);
+  }
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+  
+  return response.json();
+}
+
 const Index = () => {
+  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string>("—");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const [filters, setFilters] = useState<Filters>({
     country: "",
     journey: "",
     role: "",
     time: "",
   });
+
+  const fetchData = useCallback(async () => {
+    try {
+      const data = await fetchJsonSafely<ApiResponse>(API_URL);
+      
+      if (!data.ok || !data.responses) {
+        throw new Error("Invalid API response structure");
+      }
+      
+      setSurveyResponses(data.responses);
+      setLastUpdated(
+        data.updatedAt 
+          ? new Date(data.updatedAt).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : new Date().toLocaleString()
+      );
+      setIsLive(true);
+      setError(null);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      setIsLive(false);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial fetch and auto-refresh
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, REFRESH_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -36,30 +115,30 @@ const Index = () => {
 
     surveyResponses.forEach((r) => {
       countries.add(normalizeCountry(r.country));
-      journeys.add(r.journey.trim());
-      roles.add(r.role.trim());
-      times.add(r.time.trim());
+      journeys.add((r.journey || "").trim());
+      roles.add((r.role || "").trim());
+      times.add((r.time || "").trim());
     });
 
     return {
-      countries: [...countries].sort(),
-      journeys: [...journeys].sort(),
-      roles: [...roles].sort(),
-      times: [...times].sort(),
+      countries: [...countries].filter(Boolean).sort(),
+      journeys: [...journeys].filter(Boolean).sort(),
+      roles: [...roles].filter(Boolean).sort(),
+      times: [...times].filter(Boolean).sort(),
     };
-  }, []);
+  }, [surveyResponses]);
 
   // Filter responses
   const filteredResponses = useMemo(() => {
     return surveyResponses.filter((r) => {
       const normalizedCountry = normalizeCountry(r.country);
       if (filters.country && filters.country !== "all" && normalizedCountry !== filters.country) return false;
-      if (filters.journey && filters.journey !== "all" && r.journey.trim() !== filters.journey) return false;
-      if (filters.role && filters.role !== "all" && r.role.trim() !== filters.role) return false;
-      if (filters.time && filters.time !== "all" && r.time.trim() !== filters.time) return false;
+      if (filters.journey && filters.journey !== "all" && (r.journey || "").trim() !== filters.journey) return false;
+      if (filters.role && filters.role !== "all" && (r.role || "").trim() !== filters.role) return false;
+      if (filters.time && filters.time !== "all" && (r.time || "").trim() !== filters.time) return false;
       return true;
     });
-  }, [filters]);
+  }, [surveyResponses, filters]);
 
   // Compute metrics
   const metrics = useMemo(() => {
@@ -80,7 +159,7 @@ const Index = () => {
       if (!r.certs) return;
       r.certs.split(",").forEach((cert) => {
         const cleaned = cert.trim();
-        if (cleaned) {
+        if (cleaned && cleaned.toLowerCase() !== "not sure yet") {
           certMap.set(cleaned, (certMap.get(cleaned) || 0) + 1);
         }
       });
@@ -103,7 +182,7 @@ const Index = () => {
 
   // Generate insights
   const insights = useMemo(() => {
-    const { total, byRole, byRoadblock, topRole, topRoadblock, countryCount } = metrics;
+    const { total, topRole, topRoadblock, countryCount } = metrics;
     const result: string[] = [];
 
     if (topRole.value > 0) {
@@ -120,19 +199,19 @@ const Index = () => {
       );
     }
 
-    const itPros = filteredResponses.filter((r) => r.journey.includes("IT Professional")).length;
+    const itPros = filteredResponses.filter((r) => (r.journey || "").includes("IT Professional")).length;
     if (itPros > 0) {
       const pct = getPercentage(itPros, total);
       result.push(`<strong>${itPros} IT professionals</strong> (${pct}%) are looking to pivot into security`);
     }
 
-    const beginners = filteredResponses.filter((r) => r.journey.includes("Absolute Beginner")).length;
+    const beginners = filteredResponses.filter((r) => (r.journey || "").includes("Absolute Beginner")).length;
     if (beginners > 0) {
       const pct = getPercentage(beginners, total);
       result.push(`<strong>${beginners} absolute beginners</strong> (${pct}%) are starting their security journey`);
     }
 
-    const accelerated = filteredResponses.filter((r) => r.time.includes("10+")).length;
+    const accelerated = filteredResponses.filter((r) => (r.time || "").includes("10+")).length;
     if (accelerated > 0) {
       const pct = getPercentage(accelerated, total);
       result.push(
@@ -197,7 +276,17 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
     setFilters({ country: "", journey: "", role: "", time: "" });
   };
 
-  const lastUpdated = getLastUpdated();
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+          <p className="text-muted-foreground text-sm">Loading live data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -206,6 +295,33 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
       <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[300px] sm:h-[500px] w-[400px] sm:w-[800px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <main className="relative mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+        {/* Live Status Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 flex items-center justify-between"
+        >
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${isLive ? 'bg-cyber-green/10 border border-cyber-green/30' : 'bg-cyber-amber/10 border border-cyber-amber/30'}`}>
+            {isLive ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
+                <Wifi className="w-3.5 h-3.5 text-cyber-green" />
+                <span className="text-xs text-cyber-green font-medium">Live • auto-refresh 60s</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3.5 h-3.5 text-cyber-amber" />
+                <span className="text-xs text-cyber-amber font-medium">Offline</span>
+              </>
+            )}
+          </div>
+          {error && (
+            <div className="text-xs text-cyber-amber bg-cyber-amber/10 px-3 py-1.5 rounded-lg border border-cyber-amber/30">
+              {error}
+            </div>
+          )}
+        </motion.div>
+
         {/* Header */}
         <DashboardHeader
           totalResponses={metrics.total}
@@ -354,7 +470,7 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
           className="mt-6 sm:mt-10 pb-6 sm:pb-8 text-center"
         >
           <p className="text-[10px] sm:text-xs text-muted-foreground">
-            Cybersecurity Mentorship Survey Dashboard
+            Cybersecurity Mentorship Survey Dashboard • {metrics.total} responses
           </p>
         </motion.footer>
       </main>
