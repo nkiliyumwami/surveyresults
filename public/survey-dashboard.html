@@ -71,6 +71,31 @@
       margin-right: 12px;
     }
     
+    /* Animated counter styles */
+    .kpi-number {
+      display: inline-block;
+      transition: transform 0.15s ease-out;
+    }
+    .kpi-number.counting {
+      transform: scale(1.1);
+    }
+    .kpi-label-animate {
+      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    }
+    .kpi-label-animate.updating {
+      opacity: 0.6;
+      transform: translateY(-2px);
+    }
+    
+    @keyframes countPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .pulse-once {
+      animation: countPulse 0.4s ease-out;
+    }
+    
     @media print {
       .no-print { display: none !important; }
       .print-break { page-break-inside: avoid; }
@@ -157,7 +182,7 @@
           </div>
           <div>
             <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Responses</div>
-            <div id="kpiTotal" class="mt-0.5 text-2xl font-bold text-slate-900">—</div>
+            <div id="kpiTotal" class="kpi-number mt-0.5 text-2xl font-bold text-slate-900">—</div>
           </div>
         </div>
       </div>
@@ -171,8 +196,8 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Country</div>
-            <div id="kpiTopCountry" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
-            <div id="kpiTopCountrySub" class="text-xs text-slate-500">—</div>
+            <div id="kpiTopCountry" class="kpi-label-animate mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopCountrySub" class="kpi-label-animate text-xs text-slate-500">—</div>
           </div>
         </div>
       </div>
@@ -186,8 +211,8 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Dream Role</div>
-            <div id="kpiTopRole" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
-            <div id="kpiTopRoleSub" class="text-xs text-slate-500">—</div>
+            <div id="kpiTopRole" class="kpi-label-animate mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopRoleSub" class="kpi-label-animate text-xs text-slate-500">—</div>
           </div>
         </div>
       </div>
@@ -201,8 +226,8 @@
           </div>
           <div class="min-w-0 flex-1">
             <div class="text-xs font-medium text-slate-500 uppercase tracking-wide">Top Roadblock</div>
-            <div id="kpiTopRoadblock" class="mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
-            <div id="kpiTopRoadblockSub" class="text-xs text-slate-500">—</div>
+            <div id="kpiTopRoadblock" class="kpi-label-animate mt-0.5 text-lg font-semibold text-slate-900 truncate">—</div>
+            <div id="kpiTopRoadblockSub" class="kpi-label-animate text-xs text-slate-500">—</div>
           </div>
         </div>
       </div>
@@ -711,14 +736,70 @@
     }
 
     // -------------------------
-    // 7) MAIN RENDER
+    // 7) ANIMATED COUNTER
+    // -------------------------
+    const counterState = { kpiTotal: 0 };
+    
+    function animateCounter(element, start, end, duration = 600) {
+      if (start === end) return;
+      
+      const range = end - start;
+      const startTime = performance.now();
+      
+      // Add counting class for scale effect
+      element.classList.add('counting');
+      
+      function updateCounter(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function (ease-out cubic)
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(start + range * easeOut);
+        
+        element.textContent = current.toString();
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateCounter);
+        } else {
+          element.textContent = end.toString();
+          element.classList.remove('counting');
+          element.classList.add('pulse-once');
+          setTimeout(() => element.classList.remove('pulse-once'), 400);
+        }
+      }
+      
+      requestAnimationFrame(updateCounter);
+    }
+    
+    function animateSubCounter(element, value, total) {
+      element.classList.add('updating');
+      setTimeout(() => {
+        element.textContent = `${value} of ${total}`;
+        element.classList.remove('updating');
+      }, 150);
+    }
+    
+    function animateLabel(element, newText) {
+      element.classList.add('kpi-label-animate', 'updating');
+      setTimeout(() => {
+        element.textContent = newText;
+        element.classList.remove('updating');
+      }, 150);
+    }
+
+    // -------------------------
+    // 8) MAIN RENDER
     // -------------------------
     function render() {
       const filtered = getFilteredResponses();
       const total = filtered.length;
 
-      // KPIs
-      document.getElementById('kpiTotal').textContent = total.toString();
+      // Animated KPI Total
+      const kpiTotalEl = document.getElementById('kpiTotal');
+      const previousTotal = counterState.kpiTotal;
+      counterState.kpiTotal = total;
+      animateCounter(kpiTotalEl, previousTotal, total);
 
       const byCountry = countBy(filtered, r => normalizeCountry(r.country));
       const byRole = countBy(filtered, r => r.role);
@@ -727,16 +808,16 @@
       const byTime = countBy(filtered, r => r.time);
 
       const topCountry = top1(byCountry);
-      document.getElementById('kpiTopCountry').textContent = topCountry.label;
-      document.getElementById('kpiTopCountrySub').textContent = `${topCountry.value} of ${total}`;
+      animateLabel(document.getElementById('kpiTopCountry'), topCountry.label);
+      animateSubCounter(document.getElementById('kpiTopCountrySub'), topCountry.value, total);
 
       const topRole = top1(byRole);
-      document.getElementById('kpiTopRole').textContent = getShortLabel(topRole.label);
-      document.getElementById('kpiTopRoleSub').textContent = `${topRole.value} of ${total}`;
+      animateLabel(document.getElementById('kpiTopRole'), getShortLabel(topRole.label));
+      animateSubCounter(document.getElementById('kpiTopRoleSub'), topRole.value, total);
 
       const topRoadblock = top1(byRoadblock);
-      document.getElementById('kpiTopRoadblock').textContent = getShortLabel(topRoadblock.label);
-      document.getElementById('kpiTopRoadblockSub').textContent = `${topRoadblock.value} of ${total}`;
+      animateLabel(document.getElementById('kpiTopRoadblock'), getShortLabel(topRoadblock.label));
+      animateSubCounter(document.getElementById('kpiTopRoadblockSub'), topRoadblock.value, total);
 
       // Hero summary
       const heroSummary = `${total} responses collected from ${byCountry.size} countries. Most aspire to ${getShortLabel(topRole.label).toLowerCase()} roles, with "${getShortLabel(topRoadblock.label).toLowerCase()}" as the primary challenge.`;
