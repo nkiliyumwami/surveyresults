@@ -434,9 +434,11 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
             title="Country Distribution"
             data={chartData.country}
             total={metrics.total}
-            horizontal={false}
             delay={0.8}
-            height={200}
+            height={Math.min(Math.max(200, chartData.country.length * 26 + 60), 520)}
+            labelMaxLength={24}
+            yAxisWidth={150}
+            tooltipMode="compact"
           />
         </div>
 

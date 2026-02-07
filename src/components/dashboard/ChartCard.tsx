@@ -19,14 +19,23 @@ interface ChartCardProps {
   horizontal?: boolean;
   delay?: number;
   height?: number;
+
+  /** Controls tooltip text format (used to match the standalone HTML dashboard style for Countries). */
+  tooltipMode?: "default" | "compact";
+
+  /** Max characters for category labels on the axis before truncation. */
+  labelMaxLength?: number;
+
+  /** Horizontal charts only: Y axis width in pixels (helps long labels like countries). */
+  yAxisWidth?: number;
 }
 
 const CHART_COLORS = [
-  "hsl(192, 91%, 52%)",  // cyber-glow
-  "hsl(270, 70%, 60%)",  // cyber-purple
-  "hsl(142, 76%, 46%)",  // cyber-green
-  "hsl(38, 92%, 50%)",   // cyber-amber
-  "hsl(350, 89%, 60%)",  // cyber-rose
+  "hsl(192, 91%, 52%)", // cyber-glow
+  "hsl(270, 70%, 60%)", // cyber-purple
+  "hsl(142, 76%, 46%)", // cyber-green
+  "hsl(38, 92%, 50%)", // cyber-amber
+  "hsl(350, 89%, 60%)", // cyber-rose
   "hsl(200, 80%, 50%)",
   "hsl(160, 70%, 45%)",
   "hsl(300, 60%, 55%)",
@@ -40,26 +49,47 @@ function truncateLabel(label: string, maxLength: number = 15): string {
   return label.substring(0, maxLength - 2) + "...";
 }
 
-export function ChartCard({ title, data, total, horizontal = true, delay = 0, height = 220 }: ChartCardProps) {
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
+export function ChartCard({
+  title,
+  data,
+  total,
+  horizontal = true,
+  delay = 0,
+  height = 220,
+  tooltipMode = "default",
+  labelMaxLength = 12,
+  yAxisWidth = 90,
+}: ChartCardProps) {
+  const renderTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+
+    const item = payload[0].payload;
+    const pct = getPercentage(item.value, total);
+
+    if (tooltipMode === "compact") {
       return (
         <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-xl max-w-xs z-50">
-          <p className="text-xs font-medium text-foreground break-words">{item.fullName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {item.value} responses ({getPercentage(item.value, total)}%)
+          <p className="text-xs font-medium text-foreground break-words">
+            {item.fullName}: {item.value} ({pct}%)
           </p>
         </div>
       );
     }
-    return null;
+
+    return (
+      <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-xl max-w-xs z-50">
+        <p className="text-xs font-medium text-foreground break-words">{item.fullName}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {item.value} responses ({pct}%)
+        </p>
+      </div>
+    );
   };
 
   // Prepare data with truncated labels for vertical bar charts
-  const chartData = horizontal 
-    ? data 
-    : data.map(item => ({
+  const chartData = horizontal
+    ? data
+    : data.map((item) => ({
         ...item,
         displayName: truncateLabel(item.name, 12),
       }));
@@ -79,17 +109,13 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
       <div className="chart-container" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           {horizontal ? (
-            <BarChart
-              data={data}
-              layout="vertical"
-              margin={{ top: 5, right: 60, left: 5, bottom: 5 }}
-            >
+            <BarChart data={data} layout="vertical" margin={{ top: 5, right: 60, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 17%)" horizontal={false} />
-              <XAxis 
-                type="number" 
-                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }} 
-                axisLine={false} 
-                tickLine={false} 
+              <XAxis
+                type="number"
+                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
               />
               <YAxis
                 type="category"
@@ -97,10 +123,10 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
                 tick={{ fill: "hsl(210, 40%, 98%)", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
-                width={90}
-                tickFormatter={(value) => truncateLabel(value, 12)}
+                width={yAxisWidth}
+                tickFormatter={(value) => truncateLabel(value, labelMaxLength)}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
+              <Tooltip content={renderTooltip} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
                 {data.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
@@ -115,10 +141,7 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
               </Bar>
             </BarChart>
           ) : (
-            <BarChart 
-              data={chartData} 
-              margin={{ top: 25, right: 5, left: 5, bottom: 80 }}
-            >
+            <BarChart data={chartData} margin={{ top: 25, right: 5, left: 5, bottom: 80 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 17%)" vertical={false} />
               <XAxis
                 dataKey="displayName"
@@ -130,23 +153,18 @@ export function ChartCard({ title, data, total, horizontal = true, delay = 0, he
                 height={80}
                 interval={0}
               />
-              <YAxis 
-                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }} 
-                axisLine={false} 
+              <YAxis
+                tick={{ fill: "hsl(215, 20%, 55%)", fontSize: 10 }}
+                axisLine={false}
                 tickLine={false}
                 width={30}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
+              <Tooltip content={renderTooltip} cursor={{ fill: "hsl(217, 33%, 17%, 0.5)" }} />
               <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={35}>
                 {chartData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
-                <LabelList
-                  dataKey="value"
-                  position="top"
-                  fill="hsl(215, 20%, 55%)"
-                  fontSize={9}
-                />
+                <LabelList dataKey="value" position="top" fill="hsl(215, 20%, 55%)" fontSize={9} />
               </Bar>
             </BarChart>
           )}
