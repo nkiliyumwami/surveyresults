@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 
@@ -273,17 +274,43 @@ export default function Admin() {
     );
   }
 
+  async function deleteTrainer(userId: string, fullName: string) {
+    if (!confirm("Are you sure you want to delete trainer " + fullName + "? This cannot be undone.")) return;
+    setBusyId(userId);
+    try {
+      // Delete roles first (FK dependency)
+      await supabase.from("trainer_roles").delete().eq("user_id", userId);
+      // Delete the profile
+      const { data, error } = await supabase
+        .from("trainer_profiles")
+        .delete()
+        .eq("user_id", userId)
+        .select();
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("Delete blocked by database policy. Please add a DELETE RLS policy for admins on trainer_profiles.");
+      }
+      toast({ title: "Success", description: "Trainer " + fullName + " has been deleted." });
+      await loadAll();
+      setSelected(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to delete trainer", variant: "destructive" });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
 
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-8">
+      <div className="relative mx-auto w-full max-w-6xl px-2 sm:px-4 py-4 sm:py-8">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
         >
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
                 Admin • Trainers
@@ -298,7 +325,7 @@ export default function Admin() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search name, email, country, city…"
-                className="w-full sm:w-[320px]"
+                className="w-full sm:w-[320px] text-sm"
               />
               <Button variant="outline" onClick={() => loadAll()} disabled={loading}>
                 Refresh
@@ -329,9 +356,9 @@ export default function Admin() {
                       <tr className="text-left">
                         <th className="px-3 py-2 font-medium">Name</th>
                         <th className="px-3 py-2 font-medium">Email</th>
-                        <th className="px-3 py-2 font-medium">Location</th>
+                        <th className="px-3 py-2 font-medium hidden md:table-cell">Location</th>
                         <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Roles</th>
+                        <th className="px-3 py-2 font-medium hidden lg:table-cell">Roles</th>
                         <th className="px-3 py-2 font-medium text-right">
                           Actions
                         </th>
@@ -363,7 +390,7 @@ export default function Admin() {
 
                             <td className="px-3 py-2">{email}</td>
 
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 hidden md:table-cell">
                               <div>{loc || "—"}</div>
                               <div className="text-xs text-muted-foreground">
                                 TZ: {p.timezone || "—"}
@@ -383,7 +410,7 @@ export default function Admin() {
                               </div>
                             </td>
 
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 hidden lg:table-cell">
                               {p.user_id ? (
                                 <div className="flex flex-wrap gap-1">
                                   {userRoles.length ? (
@@ -423,7 +450,7 @@ export default function Admin() {
 
       {/* Details modal */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Trainer details</DialogTitle>
             <DialogDescription>
@@ -619,8 +646,16 @@ export default function Admin() {
                 </CardContent>
               </Card>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setSelected(null)}>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
+                              <Button
+                variant="destructive"
+                onClick={() => deleteTrainer(selected.user_id, selected.full_name || "Unknown")}
+                disabled={busyId === selected.user_id}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Trainer
+              </Button>
+              <Button variant="outline" onClick={() => setSelected(null)}>
                   Close
                 </Button>
               </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -8,29 +8,60 @@ import { Input } from "@/components/ui/input";
 
 export default function TrainerLogin() {
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSignup, setIsSignup] = useState(false);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (isSignup) {
+        // SIGNUP flow
+        const { data, error: signupError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
 
-      if (error) throw error;
+        if (signupError) throw signupError;
 
-      navigate("/trainer");
+        if (data.user) {
+          // Create trainer_profiles row with is_active = true
+          const { error: profileError } = await supabase
+            .from("trainer_profiles")
+            .insert({
+              user_id: data.user.id,
+              is_active: true,
+            });
+
+          if (profileError) throw profileError;
+
+          // Auto-login after signup
+          const { error: loginError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+
+          if (loginError) throw loginError;
+
+          navigate("/trainer");
+        }
+      } else {
+        // LOGIN flow
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (loginError) throw loginError;
+        navigate("/trainer");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -39,73 +70,96 @@ export default function TrainerLogin() {
   return (
     <div className="min-h-screen bg-background">
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
-
-      <main className="relative mx-auto max-w-md px-4 py-10">
+      <div className="relative flex min-h-screen items-center justify-center px-4">
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="card-cyber p-6"
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md space-y-8 rounded-lg border border-border bg-card p-8 shadow-lg"
         >
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Lock className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                Trainer Portal
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Sign in to continue
-              </p>
-            </div>
+          <div className="space-y-2 text-center">
+            <h1 className="text-3xl font-bold text-foreground">
+              {isSignup ? "Create Trainer Account" : "Trainer Login"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isSignup
+                ? "Get started by creating your account"
+                : "Sign in to your trainer account"}
+            </p>
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Email</label>
+          {error && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Email
+              </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
+                  type="email"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="trainer@email.com"
-                  className="pl-9"
-                  type="email"
-                  autoComplete="email"
+                  className="pl-10"
                   required
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Password</label>
-              <Input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
             </div>
 
-            {error && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2">
-                <p className="text-xs text-red-200">{error}</p>
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? "Loading..." : isSignup ? "Create Account" : "Sign In"}
             </Button>
-
-            <p className="text-[11px] text-muted-foreground text-center">
-              Authorized trainers only.
-            </p>
           </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-card px-2 text-muted-foreground">
+                {isSignup ? "Already have an account?" : "Don't have an account?"}
+              </span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setIsSignup(!isSignup)}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            {isSignup ? "Sign In Instead" : "Create Account"}
+          </Button>
         </motion.div>
-      </main>
+      </div>
     </div>
   );
 }
