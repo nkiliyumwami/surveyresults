@@ -40,6 +40,10 @@ const COUNTRY_ALIASES: Record<string, string> = {
   // Rwanda
   "rwanda": "Rwanda",
   "reanda": "Rwanda",
+  "kigali": "Rwanda",
+  "rwandakigali": "Rwanda",
+  "rwandankigali": "Rwanda",
+  "rwandan": "Rwanda",
 
   // United States
   "us": "United States",
@@ -48,6 +52,10 @@ const COUNTRY_ALIASES: Record<string, string> = {
   "u.s.": "United States",
   "united states": "United States",
   "united states of america": "United States",
+  "texas dallas": "United States",
+  "nashvilletenesse": "United States",
+  "nashvilletennessee": "United States",
+  "maine usa": "United States",
 
   // Canada
   "canada": "Canada"
