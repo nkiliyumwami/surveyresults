@@ -331,15 +331,17 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
                 <text
                   style={{
                     fill: "#00E5FF",
-                    fontSize: "11px",
+                    fontSize: "12px",
                     fontWeight: "bold",
                     textAnchor: "middle",
                     pointerEvents: "none",
                     paintOrder: "stroke",
                     stroke: "#0B1120",
                     strokeWidth: "3px",
+                    strokeLinecap: "round",
+                    filter: "drop-shadow(0px 2px 2px rgba(0,0,0,0.5))",
                   }}
-                  dy={4}
+                  dominantBaseline="central"
                 >
                   {getDisplayLabel(country, count)}
                 </text>
