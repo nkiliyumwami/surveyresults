@@ -258,7 +258,7 @@ function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProp
               <div className="text-2xl sm:text-3xl font-bold text-foreground">
                 {activeTrainers}
               </div>
-              <div className="text-xs text-muted-foreground">Active Trainers</div>
+              <div className="text-xs text-muted-foreground">Trainers</div>
             </div>
           </div>
         </div>

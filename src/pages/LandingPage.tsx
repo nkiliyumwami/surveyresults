@@ -61,11 +61,10 @@ export default function LandingPage() {
           setCountryData(data);
         }
 
-        // Fetch active trainers count from Supabase
+        // Fetch trainers count from Supabase (all trainers with profiles)
         const { count: trainerCount } = await supabase
           .from("trainer_profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("is_active", true);
+          .select("*", { count: "exact", head: true });
 
         setStats({
           students: studentCount,
