@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
 import { supabase } from "@/lib/supabase";
+import { normalizeCountry } from "@/data/surveyData";
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec";
@@ -52,10 +53,10 @@ export default function LandingPage() {
           totalResponses = surveyData.responses.length;
           const countries = new Set(
             surveyData.responses.map((r: { country: string }) =>
-              (r.country || "").trim().toLowerCase()
+              normalizeCountry(r.country)
             )
           );
-          countries.delete("");
+          countries.delete("Unknown");
           countriesCount = countries.size;
         }
 
