@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Navbar } from "@/components/layout/Navbar";
 import {
   getCountries,
   getCitiesForCountry,
@@ -253,8 +254,9 @@ export default function TrainerProfile() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
+        <Navbar />
         <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
-        <div className="relative flex min-h-screen items-center justify-center text-muted-foreground">
+        <div className="relative flex min-h-screen items-center justify-center text-muted-foreground pt-16">
           Loading trainer profile...
         </div>
       </div>
@@ -263,11 +265,12 @@ export default function TrainerProfile() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       {/* Background effects */}
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
       <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[300px] sm:h-[500px] w-[400px] sm:w-[800px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
-      <main className="relative mx-auto max-w-4xl px-3 py-4 sm:px-6 sm:py-8 lg:px-8">
+      <main className="relative mx-auto max-w-4xl px-3 pt-20 pb-4 sm:px-6 sm:pt-24 sm:pb-8 lg:px-8">
         <motion.header
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

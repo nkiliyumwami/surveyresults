@@ -1,12 +1,13 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Suspense, lazy } from "react";
 
-import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import AdminRoute from "@/components/auth/AdminRoute";
 
-// lazy load trainer pages so they can't crash the main dashboard
+// lazy load pages so they can't crash the landing page
+const StudentDashboard = lazy(() => import("./pages/dashboard/StudentDashboard"));
 const TrainerLogin = lazy(() => import("./pages/trainer/Login"));
 const TrainerHome = lazy(() => import("./pages/trainer/Home"));
 const TrainerProfile = lazy(() => import("./pages/trainer/Profile"));
@@ -17,7 +18,7 @@ function PageLoader() {
     <div className="min-h-screen bg-background">
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
       <div className="relative flex min-h-screen items-center justify-center text-muted-foreground">
-        Loading…
+        Loading...
       </div>
     </div>
   );
@@ -28,8 +29,13 @@ function withSuspense(node: JSX.Element) {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Index /> },
+  // Landing page (new root)
+  { path: "/", element: <LandingPage /> },
 
+  // Student dashboard (moved from root)
+  { path: "/dashboard/students", element: withSuspense(<StudentDashboard />) },
+
+  // Trainer routes
   { path: "/trainer/login", element: withSuspense(<TrainerLogin />) },
 
   {

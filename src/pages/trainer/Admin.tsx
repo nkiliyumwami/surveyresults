@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
+import { Navbar } from "@/components/layout/Navbar";
 
 type TrainerProfileRow = {
   id: string; // uuid
@@ -302,9 +303,10 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
 
-      <div className="relative mx-auto w-full max-w-6xl px-2 sm:px-4 py-4 sm:py-8">
+      <div className="relative mx-auto w-full max-w-6xl px-2 sm:px-4 pt-20 pb-4 sm:pt-24 sm:pb-8">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

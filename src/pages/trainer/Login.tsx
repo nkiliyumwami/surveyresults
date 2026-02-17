@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Navbar } from "@/components/layout/Navbar";
 
 export default function TrainerLogin() {
   const navigate = useNavigate();
@@ -86,8 +87,9 @@ export default function TrainerLogin() {
   if (emailConfirmationSent) {
     return (
       <div className="min-h-screen bg-background">
+        <Navbar />
         <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
-        <div className="relative flex min-h-screen items-center justify-center px-4">
+        <div className="relative flex min-h-screen items-center justify-center px-4 pt-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -123,8 +125,9 @@ export default function TrainerLogin() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
-      <div className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="relative flex min-h-screen items-center justify-center px-4 pt-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
