@@ -3,9 +3,6 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Shield,
-  Users,
-  Globe,
-  UserCheck,
   ClipboardList,
   UserPlus,
   BookOpen,
@@ -16,8 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
-import { AnimatedCounter } from "@/components/dashboard/AnimatedCounter";
-import { supabase } from "@/lib/supabase";
+import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
 
 const API_URL =
@@ -25,18 +21,14 @@ const API_URL =
 
 const SURVEY_URL = "https://forms.gle/Mf4Jj7jZK9iRrUDY8";
 
-interface Stats {
-  totalResponses: number;
-  countriesCount: number;
-  activeTrainers: number;
+interface CountryData {
+  country: string;
+  count: number;
 }
 
 export default function LandingPage() {
-  const [stats, setStats] = useState<Stats>({
-    totalResponses: 0,
-    countriesCount: 0,
-    activeTrainers: 0,
-  });
+  const [countryData, setCountryData] = useState<CountryData[]>([]);
+  const [totalResponses, setTotalResponses] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,31 +38,24 @@ export default function LandingPage() {
         const surveyRes = await fetch(API_URL);
         const surveyData = await surveyRes.json();
 
-        let totalResponses = 0;
-        let countriesCount = 0;
-
         if (surveyData.ok && surveyData.responses) {
-          totalResponses = surveyData.responses.length;
-          const countries = new Set(
-            surveyData.responses.map((r: { country: string }) =>
-              normalizeCountry(r.country)
-            )
+          setTotalResponses(surveyData.responses.length);
+
+          // Count responses by normalized country
+          const countryMap = new Map<string, number>();
+          surveyData.responses.forEach((r: { country: string }) => {
+            const normalized = normalizeCountry(r.country);
+            if (normalized !== "Unknown") {
+              countryMap.set(normalized, (countryMap.get(normalized) || 0) + 1);
+            }
+          });
+
+          // Convert to array format for WorldMap
+          const data: CountryData[] = Array.from(countryMap.entries()).map(
+            ([country, count]) => ({ country, count })
           );
-          countries.delete("Unknown");
-          countriesCount = countries.size;
+          setCountryData(data);
         }
-
-        // Fetch active trainers count
-        const { count: activeTrainers } = await supabase
-          .from("trainer_profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("is_active", true);
-
-        setStats({
-          totalResponses,
-          countriesCount,
-          activeTrainers: activeTrainers || 0,
-        });
       } catch (error) {
         console.error("Failed to fetch stats:", error);
       } finally {
@@ -194,7 +179,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Stats Section */}
+      {/* Interactive World Map Section */}
       <section className="py-16 sm:py-24 relative">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -202,64 +187,23 @@ export default function LandingPage() {
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-12"
+            className="text-center mb-8"
           >
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Our Impact in Numbers
+              Our Global Community
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Real-time data from our growing community
+              Real-time data from aspiring security professionals worldwide
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-            {[
-              {
-                icon: Users,
-                value: stats.totalResponses,
-                label: "Survey Responses",
-                color: "text-primary",
-                bg: "bg-primary/10",
-              },
-              {
-                icon: Globe,
-                value: stats.countriesCount,
-                label: "Countries Represented",
-                color: "text-cyber-green",
-                bg: "bg-cyber-green/10",
-              },
-              {
-                icon: UserCheck,
-                value: stats.activeTrainers,
-                label: "Active Trainers",
-                color: "text-cyber-purple",
-                bg: "bg-cyber-purple/10",
-              },
-            ].map((stat, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="card-cyber p-6 sm:p-8 text-center"
-              >
-                <div
-                  className={`inline-flex items-center justify-center w-12 h-12 rounded-lg ${stat.bg} mb-4`}
-                >
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
-                <div className="text-4xl sm:text-5xl font-bold text-foreground mb-2">
-                  {loading ? (
-                    <span className="opacity-50">--</span>
-                  ) : (
-                    <AnimatedCounter value={stat.value} />
-                  )}
-                </div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center h-[400px]">
+              <div className="animate-pulse text-muted-foreground">Loading map...</div>
+            </div>
+          ) : (
+            <WorldMap data={countryData} totalResponses={totalResponses} />
+          )}
         </div>
       </section>
 
