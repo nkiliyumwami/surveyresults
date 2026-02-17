@@ -8,7 +8,7 @@ import {
 import { Tooltip } from "react-tooltip";
 import { scaleLinear } from "d3-scale";
 import { motion } from "framer-motion";
-import { Globe, Users } from "lucide-react";
+import { Globe, Users, ShieldCheck } from "lucide-react";
 
 // Use Natural Earth data which has proper country names
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -157,10 +157,11 @@ interface CountryData {
 
 interface WorldMapProps {
   data: CountryData[];
-  totalResponses: number;
+  totalStudents: number;
+  activeTrainers: number;
 }
 
-function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
+function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
 
   // Create lookup map from country name to count
@@ -211,33 +212,54 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
 
   return (
     <div className="w-full">
-      {/* Header with stats */}
+      {/* Header with stats - 3 card grid */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12 mb-6"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Users className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-bold text-foreground">
-              {totalResponses}
+        {/* Total Students Card */}
+        <div className="relative p-4 rounded-xl bg-slate-900/50 backdrop-blur-sm border border-primary/20 shadow-lg shadow-primary/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
             </div>
-            <div className="text-xs text-muted-foreground">Total Responses</div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                {totalStudents}
+              </div>
+              <div className="text-xs text-muted-foreground">Total Students</div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-cyber-green/10 flex items-center justify-center">
-            <Globe className="h-5 w-5 text-cyber-green" />
-          </div>
-          <div>
-            <div className="text-2xl sm:text-3xl font-bold text-foreground">
-              {countriesWithData}
+        {/* Countries Represented Card */}
+        <div className="relative p-4 rounded-xl bg-slate-900/50 backdrop-blur-sm border border-cyber-green/20 shadow-lg shadow-cyber-green/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-cyber-green/10 flex items-center justify-center">
+              <Globe className="h-5 w-5 text-cyber-green" />
             </div>
-            <div className="text-xs text-muted-foreground">Countries Represented</div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                {countriesWithData}
+              </div>
+              <div className="text-xs text-muted-foreground">Countries Represented</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Trainers Card */}
+        <div className="relative p-4 rounded-xl bg-slate-900/50 backdrop-blur-sm border border-cyber-purple/20 shadow-lg shadow-cyber-purple/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-cyber-purple/10 flex items-center justify-center">
+              <ShieldCheck className="h-5 w-5 text-cyber-purple" />
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                {activeTrainers}
+              </div>
+              <div className="text-xs text-muted-foreground">Active Trainers</div>
+            </div>
           </div>
         </div>
       </motion.div>

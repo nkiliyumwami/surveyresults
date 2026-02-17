@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
+import { supabase } from "@/lib/supabase";
 
 const API_URL =
   "https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec";
@@ -30,18 +31,19 @@ interface CountryData {
 
 export default function LandingPage() {
   const [countryData, setCountryData] = useState<CountryData[]>([]);
-  const [totalResponses, setTotalResponses] = useState(0);
+  const [stats, setStats] = useState({ students: 0, trainers: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Fetch survey responses
+        // Fetch survey responses (students) from Google Sheets API
         const surveyRes = await fetch(API_URL);
         const surveyData = await surveyRes.json();
 
+        let studentCount = 0;
         if (surveyData.ok && surveyData.responses) {
-          setTotalResponses(surveyData.responses.length);
+          studentCount = surveyData.responses.length;
 
           // Count responses by normalized country
           const countryMap = new Map<string, number>();
@@ -58,6 +60,17 @@ export default function LandingPage() {
           );
           setCountryData(data);
         }
+
+        // Fetch active trainers count from Supabase
+        const { count: trainerCount } = await supabase
+          .from("trainer_profiles")
+          .select("*", { count: "exact", head: true })
+          .eq("is_active", true);
+
+        setStats({
+          students: studentCount,
+          trainers: trainerCount || 0,
+        });
       } catch (error) {
         console.error("Failed to fetch stats:", error);
       } finally {
@@ -204,7 +217,7 @@ export default function LandingPage() {
               <div className="animate-pulse text-muted-foreground">Loading map...</div>
             </div>
           ) : (
-            <WorldMap data={countryData} totalResponses={totalResponses} />
+            <WorldMap data={countryData} totalStudents={stats.students} activeTrainers={stats.trainers} />
           )}
         </div>
       </section>
