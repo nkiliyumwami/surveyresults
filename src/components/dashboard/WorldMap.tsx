@@ -1,88 +1,79 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState } from "react";
 import {
   ComposableMap,
   Geographies,
   Geography,
-  ZoomableGroup,
 } from "react-simple-maps";
 import { Tooltip } from "react-tooltip";
 import { scaleLinear } from "d3-scale";
 import { motion } from "framer-motion";
-import { Globe, Users, MapPin } from "lucide-react";
+import { Globe, Users } from "lucide-react";
 
+// Use Natural Earth data which has proper country names
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// Country name to ISO 3166-1 alpha-3 code mapping
-const COUNTRY_TO_ISO: Record<string, string> = {
-  "Rwanda": "RWA",
-  "United States": "USA",
-  "Canada": "CAN",
-  "Russia": "RUS",
-  "United Kingdom": "GBR",
-  "India": "IND",
-  "Germany": "DEU",
-  "France": "FRA",
-  "Australia": "AUS",
-  "Brazil": "BRA",
-  "Japan": "JPN",
-  "South Africa": "ZAF",
-  "Nigeria": "NGA",
-  "Kenya": "KEN",
-  "Ghana": "GHA",
-  "Egypt": "EGY",
-  "Morocco": "MAR",
-  "Tanzania": "TZA",
-  "Uganda": "UGA",
-  "Ethiopia": "ETH",
-  "China": "CHN",
-  "Mexico": "MEX",
-  "Argentina": "ARG",
-  "Colombia": "COL",
-  "Chile": "CHL",
-  "Peru": "PER",
-  "Netherlands": "NLD",
-  "Belgium": "BEL",
-  "Sweden": "SWE",
-  "Norway": "NOR",
-  "Denmark": "DNK",
-  "Finland": "FIN",
-  "Poland": "POL",
-  "Spain": "ESP",
-  "Italy": "ITA",
-  "Portugal": "PRT",
-  "Ireland": "IRL",
-  "Switzerland": "CHE",
-  "Austria": "AUT",
-  "New Zealand": "NZL",
-  "Singapore": "SGP",
-  "Malaysia": "MYS",
-  "Indonesia": "IDN",
-  "Philippines": "PHL",
-  "Thailand": "THA",
-  "Vietnam": "VNM",
-  "Pakistan": "PAK",
-  "Bangladesh": "BGD",
-  "Sri Lanka": "LKA",
-  "United Arab Emirates": "ARE",
-  "Saudi Arabia": "SAU",
-  "Israel": "ISR",
-  "Turkey": "TUR",
-  "Greece": "GRC",
-  "Czech Republic": "CZE",
-  "Hungary": "HUN",
-  "Romania": "ROU",
-  "Ukraine": "UKR",
-  "Unknown": "",
+// Mapping from world-atlas numeric IDs to country names
+// These are ISO 3166-1 numeric codes
+const ID_TO_COUNTRY: Record<string, string> = {
+  "646": "Rwanda",
+  "840": "United States",
+  "124": "Canada",
+  "643": "Russia",
+  "826": "United Kingdom",
+  "356": "India",
+  "276": "Germany",
+  "250": "France",
+  "036": "Australia",
+  "076": "Brazil",
+  "392": "Japan",
+  "710": "South Africa",
+  "566": "Nigeria",
+  "404": "Kenya",
+  "288": "Ghana",
+  "818": "Egypt",
+  "504": "Morocco",
+  "834": "Tanzania",
+  "800": "Uganda",
+  "231": "Ethiopia",
+  "156": "China",
+  "484": "Mexico",
+  "032": "Argentina",
+  "170": "Colombia",
+  "152": "Chile",
+  "604": "Peru",
+  "528": "Netherlands",
+  "056": "Belgium",
+  "752": "Sweden",
+  "578": "Norway",
+  "208": "Denmark",
+  "246": "Finland",
+  "616": "Poland",
+  "724": "Spain",
+  "380": "Italy",
+  "620": "Portugal",
+  "372": "Ireland",
+  "756": "Switzerland",
+  "040": "Austria",
+  "554": "New Zealand",
+  "702": "Singapore",
+  "458": "Malaysia",
+  "360": "Indonesia",
+  "608": "Philippines",
+  "764": "Thailand",
+  "704": "Vietnam",
+  "586": "Pakistan",
+  "050": "Bangladesh",
+  "144": "Sri Lanka",
+  "784": "United Arab Emirates",
+  "682": "Saudi Arabia",
+  "376": "Israel",
+  "792": "Turkey",
+  "300": "Greece",
+  "203": "Czech Republic",
+  "348": "Hungary",
+  "642": "Romania",
+  "804": "Ukraine",
 };
-
-// ISO code to country name (reverse mapping)
-const ISO_TO_COUNTRY: Record<string, string> = Object.entries(COUNTRY_TO_ISO).reduce(
-  (acc, [name, iso]) => {
-    if (iso) acc[iso] = name;
-    return acc;
-  },
-  {} as Record<string, string>
-);
 
 interface CountryData {
   country: string;
@@ -96,14 +87,10 @@ interface WorldMapProps {
 
 function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
-  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
-  // Convert country names to ISO codes and create lookup map
-  const dataByIso = data.reduce((acc, item) => {
-    const iso = COUNTRY_TO_ISO[item.country];
-    if (iso) {
-      acc[iso] = item.count;
-    }
+  // Create lookup map from country name to count
+  const dataByCountry = data.reduce((acc, item) => {
+    acc[item.country] = item.count;
     return acc;
   }, {} as Record<string, number>);
 
@@ -114,44 +101,28 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
   // Color scale: cyan gradient matching CyberMentor theme
   const colorScale = scaleLinear<string>()
     .domain([0, maxValue])
-    .range(["#164e63", "#06b6d4"]); // dark cyan to bright cyan
+    .range(["#0e7490", "#22d3ee"]); // dark cyan to bright cyan
 
-  const getCountryColor = (iso: string) => {
-    const value = dataByIso[iso];
+  const getCountryFromGeo = (geo: any): string => {
+    // Try to get country name from various properties
+    const id = geo.id?.toString();
+    const properties = geo.properties || {};
+
+    // First try our ID mapping
+    if (id && ID_TO_COUNTRY[id]) {
+      return ID_TO_COUNTRY[id];
+    }
+
+    // Then try common property names
+    return properties.name || properties.NAME || properties.ADMIN || "Unknown";
+  };
+
+  const getCountryColor = (countryName: string) => {
+    const value = dataByCountry[countryName];
     if (value) {
       return colorScale(value);
     }
     return "#1e293b"; // slate-800 for no data
-  };
-
-  const getCountryStyle = (iso: string) => {
-    const isHovered = hoveredCountry === iso;
-    const hasData = !!dataByIso[iso];
-
-    return {
-      default: {
-        fill: getCountryColor(iso),
-        stroke: hasData ? "#22d3ee" : "#334155",
-        strokeWidth: hasData ? 0.75 : 0.25,
-        outline: "none",
-        transition: "all 0.2s ease",
-        filter: hasData ? "drop-shadow(0 0 4px rgba(6, 182, 212, 0.3))" : "none",
-      },
-      hover: {
-        fill: hasData ? "#22d3ee" : "#334155",
-        stroke: "#22d3ee",
-        strokeWidth: 1,
-        outline: "none",
-        cursor: hasData ? "pointer" : "default",
-        filter: hasData ? "drop-shadow(0 0 8px rgba(6, 182, 212, 0.6))" : "none",
-      },
-      pressed: {
-        fill: hasData ? "#06b6d4" : "#334155",
-        stroke: "#22d3ee",
-        strokeWidth: 1,
-        outline: "none",
-      },
-    };
   };
 
   return (
@@ -192,7 +163,7 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2, duration: 0.5 }}
-        className="relative w-full aspect-[2/1] max-h-[500px] rounded-xl overflow-hidden"
+        className="relative w-full rounded-xl overflow-hidden"
         style={{
           background: "linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.6) 100%)",
         }}
@@ -200,55 +171,74 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
-            scale: 130,
+            scale: 120,
             center: [0, 30],
           }}
           style={{
             width: "100%",
-            height: "100%",
+            height: "auto",
           }}
         >
-          <ZoomableGroup center={[0, 20]} zoom={1}>
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const iso = geo.properties.ISO_A3 || geo.id;
-                  const countryName = ISO_TO_COUNTRY[iso] || geo.properties.name;
-                  const responseCount = dataByIso[iso] || 0;
+          <Geographies geography={GEO_URL}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const countryName = getCountryFromGeo(geo);
+                const responseCount = dataByCountry[countryName] || 0;
+                const hasData = responseCount > 0;
 
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      data-tooltip-id="map-tooltip"
-                      data-tooltip-content={
-                        responseCount > 0
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    data-tooltip-id="map-tooltip"
+                    data-tooltip-content={
+                      hasData
+                        ? `${countryName}: ${responseCount} Response${responseCount > 1 ? "s" : ""}`
+                        : countryName
+                    }
+                    onMouseEnter={() => {
+                      setTooltipContent(
+                        hasData
                           ? `${countryName}: ${responseCount} Response${responseCount > 1 ? "s" : ""}`
                           : countryName
-                      }
-                      onMouseEnter={() => {
-                        setHoveredCountry(iso);
-                        setTooltipContent(
-                          responseCount > 0
-                            ? `${countryName}: ${responseCount} Response${responseCount > 1 ? "s" : ""}`
-                            : countryName
-                        );
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredCountry(null);
-                        setTooltipContent("");
-                      }}
-                      style={getCountryStyle(iso)}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
+                      );
+                    }}
+                    onMouseLeave={() => {
+                      setTooltipContent("");
+                    }}
+                    style={{
+                      default: {
+                        fill: getCountryColor(countryName),
+                        stroke: hasData ? "#22d3ee" : "#334155",
+                        strokeWidth: hasData ? 0.75 : 0.25,
+                        outline: "none",
+                        transition: "all 0.2s ease",
+                        filter: hasData ? "drop-shadow(0 0 6px rgba(6, 182, 212, 0.4))" : "none",
+                      },
+                      hover: {
+                        fill: hasData ? "#22d3ee" : "#475569",
+                        stroke: "#22d3ee",
+                        strokeWidth: 1,
+                        outline: "none",
+                        cursor: hasData ? "pointer" : "default",
+                        filter: hasData ? "drop-shadow(0 0 10px rgba(6, 182, 212, 0.6))" : "none",
+                      },
+                      pressed: {
+                        fill: hasData ? "#06b6d4" : "#475569",
+                        stroke: "#22d3ee",
+                        strokeWidth: 1,
+                        outline: "none",
+                      },
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
         </ComposableMap>
 
         {/* Gradient overlay at edges */}
-        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/50 via-transparent to-transparent" />
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/30 via-transparent to-transparent" />
       </motion.div>
 
       {/* Legend */}
@@ -266,7 +256,7 @@ function WorldMapComponent({ data, totalResponses }: WorldMapProps) {
           <div
             className="w-20 h-4 rounded"
             style={{
-              background: "linear-gradient(90deg, #164e63 0%, #06b6d4 100%)",
+              background: "linear-gradient(90deg, #0e7490 0%, #22d3ee 100%)",
             }}
           />
         </div>
