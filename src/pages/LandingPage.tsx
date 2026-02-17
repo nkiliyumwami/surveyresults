@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Shield,
+  Users,
+  Globe,
   ClipboardList,
   UserPlus,
   BookOpen,
