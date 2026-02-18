@@ -107,7 +107,7 @@ function surveyToStudent(response: SurveyResponse, index: number): StudentInsert
 
 /**
  * Syncs all survey respondents to the students table
- * Uses upsert to avoid duplicates (based on email)
+ * Uses upsert to handle duplicates (updates existing records based on email)
  */
 export async function syncSurveyToStudents(): Promise<SyncResult> {
   const result: SyncResult = {
@@ -124,42 +124,25 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
     const responses = await fetchSurveyResponses();
     result.details.push(`Found ${responses.length} survey responses`);
 
-    // 2. Get existing students to check for duplicates
-    const { data: existingStudents } = await supabase
-      .from("students")
-      .select("email");
+    // 2. Convert all responses to student records
+    const studentsToUpsert: StudentInsert[] = responses.map((response, i) =>
+      surveyToStudent(response, i)
+    );
 
-    const existingEmails = new Set(existingStudents?.map((s) => s.email) || []);
-    result.details.push(`Found ${existingEmails.size} existing students`);
+    result.details.push(`Upserting ${studentsToUpsert.length} students...`);
 
-    // 3. Convert and filter
-    const studentsToInsert: StudentInsert[] = [];
-
-    for (let i = 0; i < responses.length; i++) {
-      const student = surveyToStudent(responses[i], i);
-
-      if (existingEmails.has(student.email)) {
-        result.skipped++;
-        continue;
-      }
-
-      studentsToInsert.push(student);
-    }
-
-    result.details.push(`${studentsToInsert.length} new students to import, ${result.skipped} already exist`);
-
-    // 4. Insert new students
-    if (studentsToInsert.length > 0) {
+    // 3. Upsert all students (insert or update on email conflict)
+    if (studentsToUpsert.length > 0) {
       const { data, error } = await supabase
         .from("students")
-        .insert(studentsToInsert)
+        .upsert(studentsToUpsert, { onConflict: "email" })
         .select("id");
 
       if (error) {
-        result.errors.push(`Insert error: ${error.message}`);
+        result.errors.push(`Upsert error: ${error.message}`);
       } else {
         result.imported = data?.length || 0;
-        result.details.push(`Successfully imported ${result.imported} students`);
+        result.details.push(`Successfully synced ${result.imported} students`);
       }
     }
 
@@ -235,7 +218,7 @@ const MOCK_STUDENTS: StudentInsert[] = [
 ];
 
 /**
- * Inserts mock students for testing
+ * Inserts mock students for testing (uses upsert to handle duplicates)
  */
 export async function insertMockStudents(): Promise<SyncResult> {
   const result: SyncResult = {
@@ -247,30 +230,18 @@ export async function insertMockStudents(): Promise<SyncResult> {
   };
 
   try {
-    // Check which mock students already exist
-    const { data: existingStudents } = await supabase
+    result.details.push(`Upserting ${MOCK_STUDENTS.length} mock students...`);
+
+    const { data, error } = await supabase
       .from("students")
-      .select("email");
+      .upsert(MOCK_STUDENTS, { onConflict: "email" })
+      .select("id");
 
-    const existingEmails = new Set(existingStudents?.map((s) => s.email) || []);
-
-    const toInsert = MOCK_STUDENTS.filter((s) => !existingEmails.has(s.email));
-    result.skipped = MOCK_STUDENTS.length - toInsert.length;
-
-    result.details.push(`${toInsert.length} mock students to insert, ${result.skipped} already exist`);
-
-    if (toInsert.length > 0) {
-      const { data, error } = await supabase
-        .from("students")
-        .insert(toInsert)
-        .select("id");
-
-      if (error) {
-        result.errors.push(`Insert error: ${error.message}`);
-      } else {
-        result.imported = data?.length || 0;
-        result.details.push(`Successfully inserted ${result.imported} mock students`);
-      }
+    if (error) {
+      result.errors.push(`Upsert error: ${error.message}`);
+    } else {
+      result.imported = data?.length || 0;
+      result.details.push(`Successfully synced ${result.imported} mock students`);
     }
 
     result.success = result.errors.length === 0;
