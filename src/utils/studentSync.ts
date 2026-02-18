@@ -3,15 +3,16 @@
  *
  * Syncs survey respondents from Google Sheets API to the students table.
  *
- * Column Mapping (Cybersecurity Training Cohort Assessment):
- * - Column A (Index 0): Timestamp
- * - Column B (Index 1): Email - PRIMARY IDENTIFIER
- * - Column C (Index 2): Journey Level
- * - Column D (Index 3): Target Role
- * - Column E (Index 4): Roadblock
- * - Column F (Index 5): Weekly Hours
- * - Column G (Index 6): Country
- * - Column H (Index 7): Certifications
+ * Column Mapping (slug headers):
+ * - timestamp: Record timestamp
+ * - email: PRIMARY IDENTIFIER
+ * - journey: Where they are in their journey
+ * - role: Their dream role
+ * - roadblock: Their biggest roadblock
+ * - commitment: Time commitment per week
+ * - location: Country
+ * - certs: Interested certifications
+ * - notes: Special requests/suggestions
  */
 
 import { supabase } from "@/lib/supabase";
@@ -26,14 +27,15 @@ const SURVEY_API_URL =
 // ============================================================
 
 export interface SurveyResponse {
-  timestamp: string;   // Column A
-  email: string;       // Column B - PRIMARY IDENTIFIER
-  journey: string;     // Column C
-  role: string;        // Column D
-  roadblock: string;   // Column E
-  time: string;        // Column F
-  country: string;     // Column G
-  certs: string;       // Column H
+  timestamp: string;    // Record timestamp
+  email: string;        // PRIMARY IDENTIFIER
+  journey: string;      // Where they are in their journey
+  role: string;         // Their dream role
+  roadblock: string;    // Their biggest roadblock
+  commitment: string;   // Time commitment per week
+  location: string;     // Country
+  certs: string;        // Interested certifications
+  notes?: string;       // Special requests/suggestions (optional)
 }
 
 export interface StudentInsert {
@@ -118,11 +120,11 @@ function surveyToStudent(response: SurveyResponse): StudentInsert | null {
     email: email,
     // Use email-derived name since there's no Name column
     full_name: getNameFromEmail(email),
-    country: normalizeCountry(response.country) || "",
+    country: normalizeCountry(response.location) || "",
     journey_level: response.journey || "",
     target_role: response.role || "",
     roadblock: response.roadblock || "",
-    weekly_hours: response.time || "",
+    weekly_hours: response.commitment || "",
     certifications: response.certs || "",
     survey_timestamp: response.timestamp || "",
   };
