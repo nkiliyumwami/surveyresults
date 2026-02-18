@@ -94,14 +94,51 @@ function getNameFromEmail(email: string): string {
  * Fetches survey responses from Google Sheets API
  */
 export async function fetchSurveyResponses(): Promise<SurveyResponse[]> {
-  const response = await fetch(SURVEY_API_URL);
-  const data = await response.json();
+  console.log("[StudentSync] Fetching from:", SURVEY_API_URL);
 
-  if (!data.ok || !data.responses) {
-    throw new Error("Failed to fetch survey data");
+  try {
+    const response = await fetch(SURVEY_API_URL);
+
+    // Log HTTP status
+    console.log("[StudentSync] HTTP Status:", response.status, response.statusText);
+
+    if (!response.ok) {
+      console.error("[StudentSync] HTTP Error:", response.status, response.statusText);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    // Log what we received
+    console.log("[StudentSync] API Response:", {
+      ok: data.ok,
+      responseCount: data.responses?.length,
+      keys: Object.keys(data),
+      firstRow: data.responses?.[0] ? Object.keys(data.responses[0]) : "no data"
+    });
+
+    if (!data.ok) {
+      console.error("[StudentSync] API returned ok=false:", data);
+      throw new Error(`API Error: ${data.error || "Unknown error"}`);
+    }
+
+    if (!data.responses || !Array.isArray(data.responses)) {
+      console.error("[StudentSync] No responses array in data:", data);
+      throw new Error("No responses array in API data");
+    }
+
+    // Log column names from first row to verify mapping
+    if (data.responses.length > 0) {
+      console.log("[StudentSync] First row columns:", Object.keys(data.responses[0]));
+      console.log("[StudentSync] First row sample:", data.responses[0]);
+    }
+
+    return data.responses as SurveyResponse[];
+
+  } catch (error) {
+    console.error("[StudentSync] Fetch error:", error);
+    throw error;
   }
-
-  return data.responses as SurveyResponse[];
 }
 
 /**
