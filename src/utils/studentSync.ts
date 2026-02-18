@@ -18,6 +18,7 @@ const SURVEY_API_URL =
 
 export interface SurveyResponse {
   timestamp: string;
+  name?: string; // Optional name field from survey
   journey: string;
   role: string;
   roadblock: string;
@@ -29,7 +30,7 @@ export interface SurveyResponse {
 
 export interface StudentInsert {
   email: string;
-  full_name: string;
+  full_name: string | null;
   country: string;
   journey_level: string;
   target_role: string;
@@ -79,22 +80,47 @@ function generateEmailFromTimestamp(timestamp: string): string {
 }
 
 /**
- * Generates a display name from survey data
+ * Checks if a string looks like a timestamp/date
  */
-function generateDisplayName(response: SurveyResponse, index: number): string {
-  // Extract short role for the name
-  const roleShort = response.role?.split(":")[0]?.trim() || "Student";
-  const country = normalizeCountry(response.country) || "Unknown";
-  return `${roleShort} Student ${index + 1} (${country})`;
+function looksLikeTimestamp(str: string): boolean {
+  if (!str) return false;
+  // Check for common date patterns
+  const datePatterns = [
+    /^\d{1,2}\/\d{1,2}\/\d{2,4}/, // 2/10/2026
+    /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s/i, // Sun Feb 08
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s/i, // Feb 08
+    /^\d{4}-\d{2}-\d{2}/, // 2026-02-08
+    /^Student\s+(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s/i, // Student Sun Feb
+    /^Student\s+\d{1,2}[-\/]/i, // Student 2/10 or Student 2-10
+  ];
+  return datePatterns.some(pattern => pattern.test(str.trim()));
+}
+
+/**
+ * Generates a display name from survey data
+ * Priority: 1) Real name from survey, 2) null (let UI handle fallback)
+ */
+function generateDisplayName(response: SurveyResponse): string | null {
+  // Check if survey has a name field with a real name
+  if (response.name && response.name.trim()) {
+    const name = response.name.trim();
+    // Make sure it's not a timestamp
+    if (!looksLikeTimestamp(name)) {
+      return name;
+    }
+  }
+
+  // Don't generate fake names - return null and let UI show email
+  return null;
 }
 
 /**
  * Converts a survey response to a student insert object
  */
-function surveyToStudent(response: SurveyResponse, index: number): StudentInsert {
+function surveyToStudent(response: SurveyResponse): StudentInsert {
   return {
     email: generateEmailFromTimestamp(response.timestamp),
-    full_name: generateDisplayName(response, index),
+    full_name: generateDisplayName(response),
     country: normalizeCountry(response.country),
     journey_level: response.journey || "",
     target_role: response.role || "",
@@ -139,8 +165,8 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
     result.details.push(`Found ${responses.length} survey responses`);
 
     // 2. Convert all responses to student records
-    const allStudents: StudentInsert[] = responses.map((response, i) =>
-      surveyToStudent(response, i)
+    const allStudents: StudentInsert[] = responses.map((response) =>
+      surveyToStudent(response)
     );
 
     // 3. Deduplicate by email (keep last occurrence = most recent)
