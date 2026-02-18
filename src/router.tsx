@@ -19,6 +19,7 @@ const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
 // Dev/test pages (hidden routes)
 const TestAssignments = lazy(() => import("./pages/dev/TestAssignments"));
 const TestMatchingEngine = lazy(() => import("./pages/dev/TestMatchingEngine"));
+const SyncStudents = lazy(() => import("./pages/dev/SyncStudents"));
 
 function PageLoader() {
   return (
@@ -85,6 +86,12 @@ export const router = createBrowserRouter([
     path: "/dev/test-matching",
     element: (
       <AdminRoute>{withSuspense(<TestMatchingEngine />)}</AdminRoute>
+    ),
+  },
+  {
+    path: "/dev/sync-students",
+    element: (
+      <AdminRoute>{withSuspense(<SyncStudents />)}</AdminRoute>
     ),
   },
 
