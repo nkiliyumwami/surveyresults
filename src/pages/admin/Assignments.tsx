@@ -162,7 +162,7 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-foreground truncate">
-                {student.full_name || student.email || "Unknown Student"}
+                {student.full_name || "Unknown Student"}
               </h3>
               {student.country && (
                 <Badge variant="outline" className="text-xs">
@@ -170,6 +170,12 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
                 </Badge>
               )}
             </div>
+
+            {student.email && (
+              <p className="text-xs text-muted-foreground mb-1 font-mono">
+                {student.email}
+              </p>
+            )}
 
             <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
               {student.target_role && (
@@ -248,8 +254,20 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
                       #{i + 1}
                     </div>
                     <div>
-                      <div className="font-medium text-foreground">
-                        {match.trainerName}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">
+                          {match.trainerName}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            match.breakdown.currentAssignments >= match.breakdown.maxCapacity
+                              ? "bg-red-500/10 text-red-400 border-red-500/30"
+                              : "bg-primary/10 text-primary border-primary/30"
+                          }`}
+                        >
+                          ({match.breakdown.currentAssignments}/{match.breakdown.maxCapacity})
+                        </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {match.breakdown.skillsMatch.length > 0 ? (
@@ -257,8 +275,6 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
                         ) : (
                           <span>No direct skill match</span>
                         )}
-                        {" • "}
-                        <span>{match.breakdown.currentAssignments}/{match.breakdown.maxCapacity} students</span>
                       </div>
                     </div>
                   </div>
@@ -458,7 +474,7 @@ export default function Assignments() {
               className="gap-2"
             >
               <Sparkles className="h-4 w-4" />
-              Unassigned ({unassignedStudents.length})
+              Awaiting Match ({unassignedStudents.length})
             </Button>
             <Button
               variant={activeTab === "assigned" ? "default" : "outline"}
@@ -466,7 +482,7 @@ export default function Assignments() {
               className="gap-2"
             >
               <Check className="h-4 w-4" />
-              Assigned ({assignedStudents.length})
+              Completed Assignments ({assignedStudents.length})
             </Button>
             <Button
               variant="ghost"
@@ -539,12 +555,17 @@ export default function Assignments() {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h3 className="font-semibold text-foreground">
-                              {student.full_name || student.email || "Unknown Student"}
+                              {student.full_name || "Unknown Student"}
                             </h3>
                             <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
                               {assignment.status}
                             </Badge>
                           </div>
+                          {student.email && (
+                            <p className="text-xs text-muted-foreground font-mono mb-1">
+                              {student.email}
+                            </p>
+                          )}
                           <p className="text-sm text-muted-foreground">
                             {student.target_role ? getShortRole(student.target_role) : "No role specified"}
                           </p>
