@@ -138,7 +138,7 @@ export default function LandingPage() {
               >
                 <a href={SURVEY_URL} target="_blank" rel="noopener noreferrer">
                   <ClipboardList className="mr-2 h-5 w-5" />
-                  Take the Survey
+                  Join our community
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
               </Button>
