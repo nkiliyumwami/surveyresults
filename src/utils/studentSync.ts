@@ -106,6 +106,20 @@ function surveyToStudent(response: SurveyResponse, index: number): StudentInsert
 }
 
 /**
+ * Deduplicates students by email, keeping the last occurrence (most recent)
+ */
+function deduplicateByEmail(students: StudentInsert[]): StudentInsert[] {
+  const emailMap = new Map<string, StudentInsert>();
+
+  // Iterate through all students - later entries overwrite earlier ones
+  for (const student of students) {
+    emailMap.set(student.email, student);
+  }
+
+  return Array.from(emailMap.values());
+}
+
+/**
  * Syncs all survey respondents to the students table
  * Uses upsert to handle duplicates (updates existing records based on email)
  */
@@ -125,17 +139,22 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
     result.details.push(`Found ${responses.length} survey responses`);
 
     // 2. Convert all responses to student records
-    const studentsToUpsert: StudentInsert[] = responses.map((response, i) =>
+    const allStudents: StudentInsert[] = responses.map((response, i) =>
       surveyToStudent(response, i)
     );
 
-    result.details.push(`Upserting ${studentsToUpsert.length} students...`);
+    // 3. Deduplicate by email (keep last occurrence = most recent)
+    const uniqueStudents = deduplicateByEmail(allStudents);
+    const duplicatesFiltered = allStudents.length - uniqueStudents.length;
 
-    // 3. Upsert all students (insert or update on email conflict)
-    if (studentsToUpsert.length > 0) {
+    console.log(`Filtered ${allStudents.length} rows down to ${uniqueStudents.length} unique students`);
+    result.details.push(`Filtered ${allStudents.length} rows down to ${uniqueStudents.length} unique students (${duplicatesFiltered} duplicates removed)`);
+
+    // 4. Upsert unique students (insert or update on email conflict)
+    if (uniqueStudents.length > 0) {
       const { data, error } = await supabase
         .from("students")
-        .upsert(studentsToUpsert, { onConflict: "email" })
+        .upsert(uniqueStudents, { onConflict: "email" })
         .select("id");
 
       if (error) {
