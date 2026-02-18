@@ -11,19 +11,23 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 import { Navbar } from "@/components/layout/Navbar";
+import { Progress } from "@/components/ui/progress";
 import {
   getBestMatches,
   fetchActiveTrainers,
+  bulkAutoAssign,
   type StudentForMatching,
   type TrainerForMatching,
   type MatchScore,
+  type BulkAssignmentProgress,
+  type BulkAssignmentResult,
 } from "@/utils/matchingEngine";
 
 // ============================================================
@@ -499,6 +503,91 @@ export default function Assignments() {
   const [trainers, setTrainers] = useState<TrainerForMatching[]>([]);
   const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
 
+  // Bulk assignment state
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<BulkAssignmentProgress | null>(null);
+  const [bulkResult, setBulkResult] = useState<BulkAssignmentResult | null>(null);
+
+  const handleBulkAutoAssign = async () => {
+    if (unassignedStudents.length === 0) {
+      toast({
+        title: "No Students to Assign",
+        description: "All students have already been assigned to trainers.",
+      });
+      return;
+    }
+
+    if (trainers.length === 0) {
+      toast({
+        title: "No Active Trainers",
+        description: "Please add active trainers before assigning students.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Confirm before proceeding
+    const confirmed = window.confirm(
+      `This will automatically assign ${unassignedStudents.length} students to trainers based on matching scores. Continue?`
+    );
+    if (!confirmed) return;
+
+    setBulkAssigning(true);
+    setBulkResult(null);
+    setBulkProgress({ current: 0, total: unassignedStudents.length, currentStudent: "", phase: "matching" });
+
+    try {
+      // Convert StudentRow to StudentForMatching
+      const studentsForMatching: StudentForMatching[] = unassignedStudents.map((s) => ({
+        id: s.id,
+        full_name: s.full_name,
+        target_role: s.target_role,
+        weekly_hours: s.weekly_hours,
+        journey_level: s.journey_level,
+        roadblock: s.roadblock,
+        certifications: s.certifications,
+      }));
+
+      const result = await bulkAutoAssign(studentsForMatching, trainers, (progress) => {
+        setBulkProgress(progress);
+      });
+
+      setBulkResult(result);
+
+      if (result.success) {
+        toast({
+          title: "Bulk Assignment Complete",
+          description: `Successfully assigned ${result.assigned} students to trainers.`,
+        });
+      } else if (result.assigned > 0) {
+        toast({
+          title: "Bulk Assignment Partially Complete",
+          description: `Assigned ${result.assigned} of ${result.totalStudents} students. ${result.noMatchFound} could not be matched.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Bulk Assignment Failed",
+          description: result.errors[0] || "Failed to assign students.",
+          variant: "destructive",
+        });
+      }
+
+      // Reload data to reflect changes
+      await loadData();
+    } catch (error: any) {
+      console.error("Bulk assignment error:", error);
+      toast({
+        title: "Bulk Assignment Error",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkAssigning(false);
+      setBulkProgress(null);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -626,6 +715,121 @@ export default function Assignments() {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* Bulk Auto-Assign Section */}
+          {unassignedStudents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mb-6"
+            >
+              <Card className="bg-gradient-to-r from-primary/10 via-cyber-purple/10 to-primary/10 border-primary/30">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <Zap className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Bulk Auto-Assignment</h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          Automatically match all {unassignedStudents.length} unassigned students with the best available trainers
+                          using our weighted scoring algorithm (Skills, Availability, Load Balancing).
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="lg"
+                      onClick={handleBulkAutoAssign}
+                      disabled={bulkAssigning || loading || trainers.length === 0}
+                      className="gap-2 bg-primary hover:bg-primary/90 whitespace-nowrap"
+                    >
+                      {bulkAssigning ? (
+                        <>
+                          <RefreshCw className="h-5 w-5 animate-spin" />
+                          Assigning...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-5 w-5" />
+                          Auto-Assign All Students
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Progress Bar */}
+                  {bulkAssigning && bulkProgress && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="mt-4 pt-4 border-t border-primary/20"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-foreground">
+                          {bulkProgress.phase === "matching" ? "Matching students..." : "Saving assignments..."}
+                        </span>
+                        <span className="text-sm font-medium text-primary">
+                          {bulkProgress.current} / {bulkProgress.total}
+                        </span>
+                      </div>
+                      <Progress
+                        value={(bulkProgress.current / bulkProgress.total) * 100}
+                        className="h-2"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {bulkProgress.currentStudent}
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {/* Result Summary */}
+                  {bulkResult && !bulkAssigning && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="mt-4 pt-4 border-t border-primary/20"
+                    >
+                      <div className="flex items-start gap-3">
+                        {bulkResult.success ? (
+                          <Check className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1">
+                              <span className="font-medium text-green-400">{bulkResult.assigned}</span>
+                              <span className="text-muted-foreground">assigned</span>
+                            </span>
+                            {bulkResult.noMatchFound > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span className="font-medium text-yellow-400">{bulkResult.noMatchFound}</span>
+                                <span className="text-muted-foreground">no match found</span>
+                              </span>
+                            )}
+                            {bulkResult.failed > 0 && (
+                              <span className="flex items-center gap-1">
+                                <span className="font-medium text-red-400">{bulkResult.failed}</span>
+                                <span className="text-muted-foreground">failed</span>
+                              </span>
+                            )}
+                          </div>
+                          {bulkResult.errors.length > 0 && (
+                            <p className="text-xs text-red-400 mt-1">
+                              {bulkResult.errors[0]}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Tab Navigation */}
           <div className="flex gap-2 mb-6">

@@ -163,7 +163,7 @@ export default function TrainerProfile() {
           expertise: [],
           certifications: [],
           availability: [],
-          max_students: 10,
+          max_students: 25,
           is_active: false,
         });
 
@@ -197,7 +197,7 @@ export default function TrainerProfile() {
     setCountry(p.country ?? "");
     setCity(p.city ?? "");
     setBio(p.bio ?? "");
-    setMaxStudents(p.max_students ?? 10);
+    setMaxStudents(p.max_students ?? 25);
     setExpertise(p.expertise ?? []);
     setCertificationsText((p.certifications ?? []).join(", "));
 

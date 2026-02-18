@@ -321,7 +321,7 @@ async function getActiveAssignmentCount(trainerId: string): Promise<number> {
 async function calculateCapacityScore(
   trainer: TrainerForMatching
 ): Promise<{ score: number; currentAssignments: number; maxCapacity: number }> {
-  const maxCapacity = trainer.max_capacity || trainer.max_students || 10;
+  const maxCapacity = trainer.max_capacity || trainer.max_students || 25;
   const currentAssignments = await getActiveAssignmentCount(trainer.id);
 
   // If at or over capacity, very low score
@@ -450,4 +450,311 @@ export async function fetchActiveTrainers(): Promise<TrainerForMatching[]> {
   }
 
   return data || [];
+}
+
+// ============================================================
+// Bulk Assignment Functions
+// ============================================================
+
+export interface BulkAssignmentResult {
+  success: boolean;
+  totalStudents: number;
+  assigned: number;
+  failed: number;
+  noMatchFound: number;
+  errors: string[];
+  assignments: Array<{
+    studentId: string;
+    studentName: string;
+    trainerId: string;
+    trainerName: string;
+    score: number;
+  }>;
+}
+
+export interface BulkAssignmentProgress {
+  current: number;
+  total: number;
+  currentStudent: string;
+  phase: "matching" | "assigning" | "complete";
+}
+
+/**
+ * Fetches current assignment counts for all trainers
+ * Returns a map of trainerId -> currentAssignmentCount
+ */
+async function getTrainerAssignmentCounts(): Promise<Map<string, number>> {
+  const { data, error } = await supabase
+    .from("assignments")
+    .select("trainer_id")
+    .eq("status", "active");
+
+  if (error) {
+    console.error("Failed to fetch assignment counts:", error);
+    return new Map();
+  }
+
+  const counts = new Map<string, number>();
+  for (const row of data || []) {
+    const current = counts.get(row.trainer_id) || 0;
+    counts.set(row.trainer_id, current + 1);
+  }
+
+  return counts;
+}
+
+/**
+ * Bulk auto-assign all unassigned students to best matching trainers
+ *
+ * @param students - Array of unassigned students
+ * @param trainers - Array of available trainers
+ * @param onProgress - Optional callback for progress updates
+ * @returns BulkAssignmentResult with summary and details
+ */
+export async function bulkAutoAssign(
+  students: StudentForMatching[],
+  trainers: TrainerForMatching[],
+  onProgress?: (progress: BulkAssignmentProgress) => void
+): Promise<BulkAssignmentResult> {
+  const result: BulkAssignmentResult = {
+    success: false,
+    totalStudents: students.length,
+    assigned: 0,
+    failed: 0,
+    noMatchFound: 0,
+    errors: [],
+    assignments: [],
+  };
+
+  if (students.length === 0) {
+    result.success = true;
+    return result;
+  }
+
+  if (trainers.length === 0) {
+    result.errors.push("No active trainers available");
+    return result;
+  }
+
+  // Get current assignment counts for all trainers
+  const trainerCounts = await getTrainerAssignmentCounts();
+
+  // Create a working copy of trainer capacities
+  const trainerCapacities = new Map<string, { current: number; max: number }>();
+  for (const trainer of trainers) {
+    const maxCapacity = trainer.max_capacity || trainer.max_students || 25;
+    const currentCount = trainerCounts.get(trainer.id) || 0;
+    trainerCapacities.set(trainer.id, { current: currentCount, max: maxCapacity });
+  }
+
+  // Calculate match scores for all student-trainer pairs
+  // We need to do this in a way that considers capacity dynamically
+  const assignmentsToCreate: Array<{
+    student_id: string;
+    trainer_id: string;
+    status: string;
+    studentName: string;
+    trainerName: string;
+    score: number;
+  }> = [];
+
+  for (let i = 0; i < students.length; i++) {
+    const student = students[i];
+
+    onProgress?.({
+      current: i + 1,
+      total: students.length,
+      currentStudent: student.full_name || `Student ${i + 1}`,
+      phase: "matching",
+    });
+
+    // Calculate scores for all trainers with available capacity
+    const availableTrainers = trainers.filter((t) => {
+      const capacity = trainerCapacities.get(t.id);
+      return capacity && capacity.current < capacity.max;
+    });
+
+    if (availableTrainers.length === 0) {
+      result.noMatchFound++;
+      result.errors.push(`No available trainers for ${student.full_name || student.id}`);
+      continue;
+    }
+
+    // Calculate scores for available trainers
+    // Note: We need to manually calculate without the async capacity check
+    // since we're tracking capacity in memory
+    let bestMatch: { trainerId: string; trainerName: string; score: number } | null = null;
+
+    for (const trainer of availableTrainers) {
+      const { score: availabilityScore } = calculateAvailabilityScore(student, trainer);
+      const { score: skillsScore, matchedSkills } = calculateSkillsScore(student, trainer);
+
+      // Calculate capacity score based on our in-memory tracking
+      const capacity = trainerCapacities.get(trainer.id)!;
+      const availableSlots = capacity.max - capacity.current;
+      const capacityRatio = availableSlots / capacity.max;
+      const capacityScore = WEIGHTS.CAPACITY * capacityRatio;
+
+      const totalScore = Math.round(availabilityScore + skillsScore + capacityScore);
+
+      if (!bestMatch || totalScore > bestMatch.score) {
+        bestMatch = {
+          trainerId: trainer.id,
+          trainerName: trainer.full_name || "Unknown",
+          score: totalScore,
+        };
+      }
+    }
+
+    if (bestMatch) {
+      // Update our in-memory capacity tracking
+      const capacity = trainerCapacities.get(bestMatch.trainerId)!;
+      capacity.current++;
+
+      assignmentsToCreate.push({
+        student_id: student.id,
+        trainer_id: bestMatch.trainerId,
+        status: "active",
+        studentName: student.full_name || student.id,
+        trainerName: bestMatch.trainerName,
+        score: bestMatch.score,
+      });
+    } else {
+      result.noMatchFound++;
+    }
+  }
+
+  // Batch insert all assignments
+  if (assignmentsToCreate.length > 0) {
+    onProgress?.({
+      current: students.length,
+      total: students.length,
+      currentStudent: "Saving assignments...",
+      phase: "assigning",
+    });
+
+    // Insert in batches to avoid overwhelming the database
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < assignmentsToCreate.length; i += BATCH_SIZE) {
+      const batch = assignmentsToCreate.slice(i, i + BATCH_SIZE);
+
+      const { error } = await supabase
+        .from("assignments")
+        .insert(batch.map((a) => ({
+          student_id: a.student_id,
+          trainer_id: a.trainer_id,
+          status: a.status,
+        })));
+
+      if (error) {
+        // Try to identify which assignments failed
+        result.failed += batch.length;
+        result.errors.push(`Batch insert error: ${error.message}`);
+      } else {
+        result.assigned += batch.length;
+        result.assignments.push(
+          ...batch.map((a) => ({
+            studentId: a.student_id,
+            studentName: a.studentName,
+            trainerId: a.trainer_id,
+            trainerName: a.trainerName,
+            score: a.score,
+          }))
+        );
+      }
+    }
+  }
+
+  onProgress?.({
+    current: students.length,
+    total: students.length,
+    currentStudent: "Complete",
+    phase: "complete",
+  });
+
+  result.success = result.errors.length === 0;
+  return result;
+}
+
+// Re-export helper functions for use in bulk assignment
+function calculateAvailabilityScore(
+  student: StudentForMatching,
+  trainer: TrainerForMatching
+): { score: number; matchDescription: string } {
+  const studentHours = parseStudentHours(student.weekly_hours);
+  const trainerCapacity = parseTrainerCapacity(trainer.availability);
+
+  if (studentHours.max === 0 && trainerCapacity === 0) {
+    return { score: WEIGHTS.AVAILABILITY * 0.5, matchDescription: "Unknown availability" };
+  }
+
+  if (studentHours.max === 0) {
+    return { score: WEIGHTS.AVAILABILITY * 0.6, matchDescription: "Student availability unknown" };
+  }
+
+  if (trainerCapacity === 0) {
+    return { score: WEIGHTS.AVAILABILITY * 0.4, matchDescription: "Trainer availability unknown" };
+  }
+
+  if (trainerCapacity >= studentHours.min) {
+    if (trainerCapacity >= studentHours.max) {
+      return {
+        score: WEIGHTS.AVAILABILITY,
+        matchDescription: `Trainer has ${trainerCapacity}h/week`,
+      };
+    }
+    const ratio = (trainerCapacity - studentHours.min) / (studentHours.max - studentHours.min);
+    return {
+      score: WEIGHTS.AVAILABILITY * (0.7 + 0.3 * ratio),
+      matchDescription: `Trainer has ${trainerCapacity}h/week`,
+    };
+  }
+
+  const ratio = trainerCapacity / studentHours.min;
+  return {
+    score: WEIGHTS.AVAILABILITY * ratio * 0.5,
+    matchDescription: `Limited: ${trainerCapacity}h/week`,
+  };
+}
+
+function calculateSkillsScore(
+  student: StudentForMatching,
+  trainer: TrainerForMatching
+): { score: number; matchedSkills: string[] } {
+  const studentKeywords = extractRoleKeywords(student.target_role);
+  const trainerExpertise = [
+    ...(trainer.expertise || []),
+    ...(trainer.specializations || []),
+  ];
+
+  if (studentKeywords.length === 0) {
+    if (trainerExpertise.length > 0) {
+      return { score: WEIGHTS.SKILLS * 0.5, matchedSkills: [] };
+    }
+    return { score: 0, matchedSkills: [] };
+  }
+
+  if (trainerExpertise.length === 0) {
+    return { score: WEIGHTS.SKILLS * 0.25, matchedSkills: [] };
+  }
+
+  const normalizedExpertise = trainerExpertise.map(normalizeExpertise);
+  const matchedSkills: string[] = [];
+
+  for (const keyword of studentKeywords) {
+    for (let i = 0; i < normalizedExpertise.length; i++) {
+      if (normalizedExpertise[i].includes(keyword) || keyword.includes(normalizedExpertise[i])) {
+        if (!matchedSkills.includes(trainerExpertise[i])) {
+          matchedSkills.push(trainerExpertise[i]);
+        }
+      }
+    }
+  }
+
+  if (matchedSkills.length === 0) {
+    return { score: WEIGHTS.SKILLS * 0.1, matchedSkills: [] };
+  }
+
+  const matchRatio = Math.min(matchedSkills.length / Math.max(studentKeywords.length, 1), 1);
+  return { score: WEIGHTS.SKILLS * (0.5 + 0.5 * matchRatio), matchedSkills };
 }
