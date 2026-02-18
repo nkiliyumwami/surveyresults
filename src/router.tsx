@@ -13,6 +13,9 @@ const TrainerHome = lazy(() => import("./pages/trainer/Home"));
 const TrainerProfile = lazy(() => import("./pages/trainer/Profile"));
 const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
 
+// Dev/test pages (hidden routes)
+const TestAssignments = lazy(() => import("./pages/dev/TestAssignments"));
+
 function PageLoader() {
   return (
     <div className="min-h-screen bg-background">
@@ -56,6 +59,14 @@ export const router = createBrowserRouter([
     path: "/trainer/admin",
     element: (
       <AdminRoute>{withSuspense(<TrainerAdmin />)}</AdminRoute>
+    ),
+  },
+
+  // Hidden dev route for testing assignments infrastructure
+  {
+    path: "/dev/test-assignments",
+    element: (
+      <AdminRoute>{withSuspense(<TestAssignments />)}</AdminRoute>
     ),
   },
 
