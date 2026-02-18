@@ -15,6 +15,7 @@ const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
 
 // Dev/test pages (hidden routes)
 const TestAssignments = lazy(() => import("./pages/dev/TestAssignments"));
+const TestMatchingEngine = lazy(() => import("./pages/dev/TestMatchingEngine"));
 
 function PageLoader() {
   return (
@@ -62,11 +63,17 @@ export const router = createBrowserRouter([
     ),
   },
 
-  // Hidden dev route for testing assignments infrastructure
+  // Hidden dev routes for testing
   {
     path: "/dev/test-assignments",
     element: (
       <AdminRoute>{withSuspense(<TestAssignments />)}</AdminRoute>
+    ),
+  },
+  {
+    path: "/dev/test-matching",
+    element: (
+      <AdminRoute>{withSuspense(<TestMatchingEngine />)}</AdminRoute>
     ),
   },
 
