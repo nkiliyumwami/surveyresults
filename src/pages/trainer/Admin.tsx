@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Trash2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 
@@ -331,6 +332,12 @@ export default function Admin() {
               />
               <Button variant="outline" onClick={() => loadAll()} disabled={loading}>
                 Refresh
+              </Button>
+              <Button asChild>
+                <Link to="/admin/assignments" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Assignments
+                </Link>
               </Button>
             </div>
           </div>

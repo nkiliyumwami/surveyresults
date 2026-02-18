@@ -1,0 +1,575 @@
+/**
+ * Admin Assignments Dashboard
+ *
+ * Features:
+ * - Lists unassigned students (no entry in assignments table)
+ * - "Find Best Match" button runs matching algorithm
+ * - Shows top 3 trainer matches with scores
+ * - "Assign" button creates assignment in database
+ */
+
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/use-toast";
+import { Navbar } from "@/components/layout/Navbar";
+import {
+  getBestMatches,
+  fetchActiveTrainers,
+  type StudentForMatching,
+  type TrainerForMatching,
+  type MatchScore,
+} from "@/utils/matchingEngine";
+
+// ============================================================
+// Types
+// ============================================================
+
+interface StudentRow {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  country: string | null;
+  journey_level: string | null;
+  target_role: string | null;
+  roadblock: string | null;
+  weekly_hours: string | null;
+  certifications: string | null;
+  created_at: string | null;
+}
+
+interface AssignmentRow {
+  id: string;
+  student_id: string;
+  trainer_id: string;
+  status: string;
+  created_at: string;
+  trainer?: {
+    id: string;
+    full_name: string | null;
+  };
+}
+
+// ============================================================
+// Helper Functions
+// ============================================================
+
+function getShortRole(role: string | null): string {
+  if (!role) return "Unknown";
+  const colonIndex = role.indexOf(":");
+  return colonIndex > -1 ? role.substring(0, colonIndex).trim() : role;
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-green-400";
+  if (score >= 60) return "text-yellow-400";
+  if (score >= 40) return "text-orange-400";
+  return "text-red-400";
+}
+
+function getScoreBg(score: number): string {
+  if (score >= 80) return "bg-green-500/10 border-green-500/30";
+  if (score >= 60) return "bg-yellow-500/10 border-yellow-500/30";
+  if (score >= 40) return "bg-orange-500/10 border-orange-500/30";
+  return "bg-red-500/10 border-red-500/30";
+}
+
+// ============================================================
+// Student Card Component
+// ============================================================
+
+interface StudentCardProps {
+  student: StudentRow;
+  trainers: TrainerForMatching[];
+  onAssigned: () => void;
+}
+
+function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [matches, setMatches] = useState<MatchScore[] | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
+
+  const handleFindMatch = async () => {
+    setMatching(true);
+    setMatches(null);
+
+    try {
+      const studentData: StudentForMatching = {
+        id: student.id,
+        full_name: student.full_name,
+        target_role: student.target_role,
+        weekly_hours: student.weekly_hours,
+        journey_level: student.journey_level,
+        roadblock: student.roadblock,
+        certifications: student.certifications,
+      };
+
+      const results = await getBestMatches(studentData, trainers, 3);
+      setMatches(results);
+      setExpanded(true);
+    } catch (error) {
+      console.error("Matching error:", error);
+      toast({
+        title: "Matching Failed",
+        description: "Could not calculate matches. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setMatching(false);
+    }
+  };
+
+  const handleAssign = async (trainerId: string, trainerName: string) => {
+    setAssigning(trainerId);
+
+    try {
+      const { error } = await supabase.from("assignments").insert({
+        student_id: student.id,
+        trainer_id: trainerId,
+        status: "active",
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Assignment Created",
+        description: `${student.full_name || "Student"} has been assigned to ${trainerName}.`,
+      });
+
+      onAssigned();
+    } catch (error: any) {
+      console.error("Assignment error:", error);
+      toast({
+        title: "Assignment Failed",
+        description: error.message || "Could not create assignment.",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigning(null);
+    }
+  };
+
+  return (
+    <Card className="bg-card/50 border-border/50">
+      <CardContent className="p-4">
+        {/* Student Info Row */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-foreground truncate">
+                {student.full_name || student.email || "Unknown Student"}
+              </h3>
+              {student.country && (
+                <Badge variant="outline" className="text-xs">
+                  {student.country}
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              {student.target_role && (
+                <span className="flex items-center gap-1">
+                  <span className="text-primary">{getShortRole(student.target_role)}</span>
+                </span>
+              )}
+              {student.weekly_hours && (
+                <span>• {student.weekly_hours}</span>
+              )}
+            </div>
+
+            {student.journey_level && (
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                {student.journey_level}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleFindMatch}
+              disabled={matching}
+              className="gap-1"
+            >
+              {matching ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Matching...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Find Best Match
+                </>
+              )}
+            </Button>
+
+            {matches && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Match Results (Expanded) */}
+        {expanded && matches && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-4 pt-4 border-t border-border/50"
+          >
+            <h4 className="text-sm font-medium text-muted-foreground mb-3">
+              Top 3 Matches
+            </h4>
+
+            <div className="space-y-2">
+              {matches.map((match, i) => (
+                <div
+                  key={match.trainerId}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${getScoreBg(match.totalScore)}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`text-2xl font-bold ${getScoreColor(match.totalScore)}`}>
+                      #{i + 1}
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground">
+                        {match.trainerName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {match.breakdown.skillsMatch.length > 0 ? (
+                          <span>Skills: {match.breakdown.skillsMatch.slice(0, 2).join(", ")}</span>
+                        ) : (
+                          <span>No direct skill match</span>
+                        )}
+                        {" • "}
+                        <span>{match.breakdown.currentAssignments}/{match.breakdown.maxCapacity} students</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className={`text-xl font-bold ${getScoreColor(match.totalScore)}`}>
+                        {match.totalScore}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Match Score
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={i === 0 ? "default" : "outline"}
+                      onClick={() => handleAssign(match.trainerId, match.trainerName)}
+                      disabled={assigning === match.trainerId || match.breakdown.currentAssignments >= match.breakdown.maxCapacity}
+                      className="gap-1"
+                    >
+                      {assigning === match.trainerId ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          Assigning...
+                        </>
+                      ) : match.breakdown.currentAssignments >= match.breakdown.maxCapacity ? (
+                        "At Capacity"
+                      ) : (
+                        <>
+                          <UserPlus className="h-3 w-3" />
+                          Assign
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {matches.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No suitable trainers found. Try adding more trainers or updating their profiles.
+              </p>
+            )}
+          </motion.div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Main Component
+// ============================================================
+
+export default function Assignments() {
+  const [loading, setLoading] = useState(true);
+  const [unassignedStudents, setUnassignedStudents] = useState<StudentRow[]>([]);
+  const [assignedStudents, setAssignedStudents] = useState<(StudentRow & { assignment: AssignmentRow })[]>([]);
+  const [trainers, setTrainers] = useState<TrainerForMatching[]>([]);
+  const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch all students
+      const { data: allStudents, error: studentsError } = await supabase
+        .from("students")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (studentsError) throw studentsError;
+
+      // 2. Fetch all assignments with trainer info
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from("assignments")
+        .select(`
+          id,
+          student_id,
+          trainer_id,
+          status,
+          created_at,
+          trainer:trainer_profiles(id, full_name)
+        `);
+
+      if (assignmentsError) throw assignmentsError;
+
+      // 3. Separate assigned vs unassigned
+      const assignedIds = new Set((assignments || []).map((a) => a.student_id));
+
+      const unassigned: StudentRow[] = [];
+      const assigned: (StudentRow & { assignment: AssignmentRow })[] = [];
+
+      for (const student of allStudents || []) {
+        if (assignedIds.has(student.id)) {
+          const assignment = assignments?.find((a) => a.student_id === student.id);
+          if (assignment) {
+            assigned.push({ ...student, assignment: assignment as AssignmentRow });
+          }
+        } else {
+          unassigned.push(student);
+        }
+      }
+
+      setUnassignedStudents(unassigned);
+      setAssignedStudents(assigned);
+
+      // 4. Fetch active trainers for matching
+      const trainerData = await fetchActiveTrainers();
+      setTrainers(trainerData);
+
+    } catch (error: any) {
+      console.error("Load error:", error);
+      toast({
+        title: "Failed to load data",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="fixed inset-0 bg-gradient-glow pointer-events-none" />
+      <Navbar />
+
+      <main className="relative pt-20 pb-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+              <Users className="h-7 w-7 text-primary" />
+              Student Assignments
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Match students with trainers based on skills and availability
+            </p>
+          </motion.div>
+
+          {/* Stats Cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
+          >
+            <Card className="bg-card/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Unassigned</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-orange-400">
+                  {unassignedStudents.length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Assigned</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-400">
+                  {assignedStudents.length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Active Trainers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-primary">
+                  {trainers.length}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mb-6">
+            <Button
+              variant={activeTab === "unassigned" ? "default" : "outline"}
+              onClick={() => setActiveTab("unassigned")}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              Unassigned ({unassignedStudents.length})
+            </Button>
+            <Button
+              variant={activeTab === "assigned" ? "default" : "outline"}
+              onClick={() => setActiveTab("assigned")}
+              className="gap-2"
+            >
+              <Check className="h-4 w-4" />
+              Assigned ({assignedStudents.length})
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={loadData}
+              disabled={loading}
+              className="ml-auto gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+
+          {/* Content */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : activeTab === "unassigned" ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-4"
+            >
+              {unassignedStudents.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="py-12 text-center">
+                    <Check className="h-12 w-12 text-green-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      All Students Assigned!
+                    </h3>
+                    <p className="text-muted-foreground">
+                      There are no students waiting for assignment.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                unassignedStudents.map((student) => (
+                  <StudentCard
+                    key={student.id}
+                    student={student}
+                    trainers={trainers}
+                    onAssigned={loadData}
+                  />
+                ))
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-4"
+            >
+              {assignedStudents.length === 0 ? (
+                <Card className="bg-card/50">
+                  <CardContent className="py-12 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      No Assignments Yet
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Start by assigning students to trainers.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                assignedStudents.map(({ assignment, ...student }) => (
+                  <Card key={student.id} className="bg-card/50 border-border/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-foreground">
+                              {student.full_name || student.email || "Unknown Student"}
+                            </h3>
+                            <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
+                              {assignment.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {student.target_role ? getShortRole(student.target_role) : "No role specified"}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-foreground">
+                              {assignment.trainer?.full_name || "Unknown Trainer"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Assigned {new Date(assignment.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </motion.div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

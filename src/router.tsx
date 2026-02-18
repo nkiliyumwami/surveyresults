@@ -13,6 +13,9 @@ const TrainerHome = lazy(() => import("./pages/trainer/Home"));
 const TrainerProfile = lazy(() => import("./pages/trainer/Profile"));
 const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
 
+// Admin pages
+const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
+
 // Dev/test pages (hidden routes)
 const TestAssignments = lazy(() => import("./pages/dev/TestAssignments"));
 const TestMatchingEngine = lazy(() => import("./pages/dev/TestMatchingEngine"));
@@ -60,6 +63,14 @@ export const router = createBrowserRouter([
     path: "/trainer/admin",
     element: (
       <AdminRoute>{withSuspense(<TrainerAdmin />)}</AdminRoute>
+    ),
+  },
+
+  // Admin assignment dashboard
+  {
+    path: "/admin/assignments",
+    element: (
+      <AdminRoute>{withSuspense(<AdminAssignments />)}</AdminRoute>
     ),
   },
 
