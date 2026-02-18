@@ -20,7 +20,7 @@ import { normalizeCountry } from "@/data/surveyData";
 import { supabase } from "@/lib/supabase";
 
 const API_URL =
-  "https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec";
+  "https://script.google.com/macros/s/AKfycbywhbeuCk2v3wKAHrN_fv6wD5ZzHxvRnjhUlmaIHLk16BS-ICYRnxh5t9_89te6QluPCQ/exec";
 
 const SURVEY_URL = "https://forms.gle/Mf4Jj7jZK9iRrUDY8";
 
@@ -47,8 +47,8 @@ export default function LandingPage() {
 
           // Count responses by normalized country
           const countryMap = new Map<string, number>();
-          surveyData.responses.forEach((r: { country: string }) => {
-            const normalized = normalizeCountry(r.country);
+          surveyData.responses.forEach((r: { location: string }) => {
+            const normalized = normalizeCountry(r.location);
             if (normalized !== "Unknown") {
               countryMap.set(normalized, (countryMap.get(normalized) || 0) + 1);
             }

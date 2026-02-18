@@ -13,7 +13,7 @@ export interface Filters {
   country: string;
   journey: string;
   role: string;
-  time: string;
+  commitment: string;
 }
 
 interface FilterBarProps {
@@ -23,7 +23,7 @@ interface FilterBarProps {
   countries: string[];
   journeys: string[];
   roles: string[];
-  times: string[];
+  commitments: string[];
   getShortLabel: (label: string) => string;
 }
 
@@ -34,7 +34,7 @@ export function FilterBar({
   countries,
   journeys,
   roles,
-  times,
+  commitments,
   getShortLabel,
 }: FilterBarProps) {
   const hasActiveFilters = Object.values(filters).some(v => v !== "" && v !== "all");
@@ -113,15 +113,15 @@ export function FilterBar({
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] sm:text-xs font-medium text-muted-foreground">Time</label>
-          <Select value={filters.time} onValueChange={(v) => onFilterChange("time", v)}>
+          <label className="text-[10px] sm:text-xs font-medium text-muted-foreground">Commitment</label>
+          <Select value={filters.commitment} onValueChange={(v) => onFilterChange("commitment", v)}>
             <SelectTrigger className="h-8 sm:h-9 bg-muted/50 border-border/50 text-xs sm:text-sm">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border">
               <SelectItem value="all">All</SelectItem>
-              {times.map(t => (
-                <SelectItem key={t} value={t}>{getShortLabel(t)}</SelectItem>
+              {commitments.map(c => (
+                <SelectItem key={c} value={c}>{getShortLabel(c)}</SelectItem>
               ))}
             </SelectContent>
           </Select>

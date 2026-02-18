@@ -19,8 +19,8 @@ export function SuggestionsPanel({ responses, delay = 0 }: SuggestionsPanelProps
   
   const processedResponses = responses.map(r => ({
     ...r,
-    country: normalizeCountry(r.country),
-    hasSuggestion: normalize(r.suggestion) && normalize(r.suggestion).toLowerCase() !== "n/a",
+    normalizedLocation: normalizeCountry(r.location),
+    hasSuggestion: normalize(r.notes) && normalize(r.notes).toLowerCase() !== "n/a",
   }));
 
   let filtered = processedResponses;
@@ -32,9 +32,9 @@ export function SuggestionsPanel({ responses, delay = 0 }: SuggestionsPanelProps
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     filtered = filtered.filter(r =>
-      (r.suggestion && r.suggestion.toLowerCase().includes(query)) ||
+      (r.notes && r.notes.toLowerCase().includes(query)) ||
       r.role.toLowerCase().includes(query) ||
-      r.country.toLowerCase().includes(query)
+      r.normalizedLocation.toLowerCase().includes(query)
     );
   }
 
@@ -99,11 +99,11 @@ export function SuggestionsPanel({ responses, delay = 0 }: SuggestionsPanelProps
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                      {r.country}
+                      {r.normalizedLocation}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                      {getShortLabel(r.time)}
+                      {getShortLabel(r.commitment)}
                     </span>
                     <span className="hidden sm:flex items-center gap-1">
                       <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
@@ -113,7 +113,7 @@ export function SuggestionsPanel({ responses, delay = 0 }: SuggestionsPanelProps
                 </div>
                 {r.hasSuggestion ? (
                   <p className="mt-2 sm:mt-3 text-xs sm:text-sm leading-relaxed text-foreground/80">
-                    {r.suggestion}
+                    {r.notes}
                   </p>
                 ) : (
                   <p className="mt-2 sm:mt-3 text-xs sm:text-sm italic text-muted-foreground">

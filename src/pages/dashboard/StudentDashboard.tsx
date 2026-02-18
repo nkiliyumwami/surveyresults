@@ -18,7 +18,7 @@ import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { SuggestionsPanel } from "@/components/dashboard/SuggestionsPanel";
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbywhbeuCk2v3wKAHrN_fv6wD5ZzHxvRnjhUlmaIHLk16BS-ICYRnxh5t9_89te6QluPCQ/exec';
 const REFRESH_INTERVAL = 60000; // 60 seconds
 
 interface ApiResponse {
@@ -65,7 +65,7 @@ export default function StudentDashboard() {
     country: "",
     journey: "",
     role: "",
-    time: "",
+    commitment: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -111,31 +111,31 @@ export default function StudentDashboard() {
     const countries = new Set<string>();
     const journeys = new Set<string>();
     const roles = new Set<string>();
-    const times = new Set<string>();
+    const commitments = new Set<string>();
 
     surveyResponses.forEach((r) => {
-      countries.add(normalizeCountry(r.country));
+      countries.add(normalizeCountry(r.location));
       journeys.add((r.journey || "").trim());
       roles.add((r.role || "").trim());
-      times.add((r.time || "").trim());
+      commitments.add((r.commitment || "").trim());
     });
 
     return {
       countries: [...countries].filter(Boolean).sort(),
       journeys: [...journeys].filter(Boolean).sort(),
       roles: [...roles].filter(Boolean).sort(),
-      times: [...times].filter(Boolean).sort(),
+      commitments: [...commitments].filter(Boolean).sort(),
     };
   }, [surveyResponses]);
 
   // Filter responses
   const filteredResponses = useMemo(() => {
     return surveyResponses.filter((r) => {
-      const normalizedCountry = normalizeCountry(r.country);
+      const normalizedCountry = normalizeCountry(r.location);
       if (filters.country && filters.country !== "all" && normalizedCountry !== filters.country) return false;
       if (filters.journey && filters.journey !== "all" && (r.journey || "").trim() !== filters.journey) return false;
       if (filters.role && filters.role !== "all" && (r.role || "").trim() !== filters.role) return false;
-      if (filters.time && filters.time !== "all" && (r.time || "").trim() !== filters.time) return false;
+      if (filters.commitment && filters.commitment !== "all" && (r.commitment || "").trim() !== filters.commitment) return false;
       return true;
     });
   }, [surveyResponses, filters]);
@@ -143,11 +143,11 @@ export default function StudentDashboard() {
   // Compute metrics
   const metrics = useMemo(() => {
     const total = filteredResponses.length;
-    const byCountry = countBy(filteredResponses, (r) => normalizeCountry(r.country));
+    const byCountry = countBy(filteredResponses, (r) => normalizeCountry(r.location));
     const byRole = countBy(filteredResponses, (r) => r.role);
     const byRoadblock = countBy(filteredResponses, (r) => r.roadblock);
     const byJourney = countBy(filteredResponses, (r) => r.journey);
-    const byTime = countBy(filteredResponses, (r) => r.time);
+    const byCommitment = countBy(filteredResponses, (r) => r.commitment);
 
     const topCountry = top1(byCountry);
     const topRole = top1(byRole);
@@ -171,7 +171,7 @@ export default function StudentDashboard() {
       byRole,
       byRoadblock,
       byJourney,
-      byTime,
+      byCommitment,
       certMap,
       topCountry,
       topRole,
@@ -211,7 +211,7 @@ export default function StudentDashboard() {
       result.push(`<strong>${beginners} absolute beginners</strong> (${pct}%) are starting their security journey`);
     }
 
-    const accelerated = filteredResponses.filter((r) => (r.time || "").includes("10+")).length;
+    const accelerated = filteredResponses.filter((r) => (r.commitment || "").includes("10+")).length;
     if (accelerated > 0) {
       const pct = getPercentage(accelerated, total);
       result.push(
@@ -228,7 +228,7 @@ export default function StudentDashboard() {
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    const { byJourney, byRole, byRoadblock, byTime, byCountry, certMap } = metrics;
+    const { byJourney, byRole, byRoadblock, byCommitment, byCountry, certMap } = metrics;
 
     const toChartData = (map: Map<string, number>, limit?: number) => {
       const pairs = mapToSortedPairs(map, limit);
@@ -243,7 +243,7 @@ export default function StudentDashboard() {
       journey: toChartData(byJourney),
       role: toChartData(byRole),
       roadblock: toChartData(byRoadblock),
-      time: toChartData(byTime),
+      commitment: toChartData(byCommitment),
       country: toChartData(byCountry),
       certs: toChartData(certMap, 10),
     };
@@ -254,7 +254,7 @@ export default function StudentDashboard() {
   };
 
   const handleReset = () => {
-    setFilters({ country: "", journey: "", role: "", time: "" });
+    setFilters({ country: "", journey: "", role: "", commitment: "" });
   };
 
   // Loading skeleton
@@ -328,7 +328,7 @@ export default function StudentDashboard() {
             countries={filterOptions.countries}
             journeys={filterOptions.journeys}
             roles={filterOptions.roles}
-            times={filterOptions.times}
+            commitments={filterOptions.commitments}
             getShortLabel={getShortLabel}
           />
         </div>
@@ -408,7 +408,7 @@ export default function StudentDashboard() {
           />
           <ChartCard
             title="Weekly Time Commitment"
-            data={chartData.time}
+            data={chartData.commitment}
             total={metrics.total}
             delay={0.7}
             height={160}
