@@ -162,19 +162,19 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
         {/* Student Info Row */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Line 1: Email (Bold, Primary) */}
+            {/* Line 1: Full Name (Bold, Primary) */}
             <button
               onClick={() => setShowDetails(!showDetails)}
               className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-2 mb-1"
             >
-              <span className="truncate">{student.email || "No Email"}</span>
+              <span className="truncate">{student.full_name || "Unknown"}</span>
               <Info className="h-3 w-3 text-muted-foreground flex-shrink-0" />
             </button>
 
-            {/* Line 2: Full Name (if exists) */}
-            {student.full_name && (
-              <p className="text-sm text-muted-foreground mb-1">
-                {student.full_name}
+            {/* Line 2: Email */}
+            {student.email && (
+              <p className="text-sm text-muted-foreground mb-1 font-mono">
+                {student.email}
               </p>
             )}
 
@@ -389,13 +389,13 @@ function AssignedStudentCard({ student, assignment }: AssignedStudentCardProps) 
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Line 1: Email (Bold, Primary) + Status Badge */}
+            {/* Line 1: Full Name (Bold, Primary) + Status Badge */}
             <div className="flex items-center gap-2 mb-1">
               <button
                 onClick={() => setShowDetails(!showDetails)}
                 className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-2"
               >
-                <span className="truncate">{student.email || "No Email"}</span>
+                <span className="truncate">{student.full_name || "Unknown"}</span>
                 <Info className="h-3 w-3 text-muted-foreground flex-shrink-0" />
               </button>
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
@@ -403,10 +403,10 @@ function AssignedStudentCard({ student, assignment }: AssignedStudentCardProps) 
               </Badge>
             </div>
 
-            {/* Line 2: Full Name (if exists) */}
-            {student.full_name && (
-              <p className="text-sm text-muted-foreground mb-1">
-                {student.full_name}
+            {/* Line 2: Email */}
+            {student.email && (
+              <p className="text-sm text-muted-foreground mb-1 font-mono">
+                {student.email}
               </p>
             )}
 
