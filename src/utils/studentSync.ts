@@ -20,7 +20,7 @@ import { normalizeCountry } from "@/data/surveyData";
 
 // Google Sheets API URL
 const SURVEY_API_URL =
-  "https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec";
+  "https://script.google.com/macros/s/AKfycbywhbeuCk2v3wKAHrN_fv6wD5ZzHxvRnjhUlmaIHLk16BS-ICYRnxh5t9_89te6QluPCQ/exec";
 
 // ============================================================
 // Types
