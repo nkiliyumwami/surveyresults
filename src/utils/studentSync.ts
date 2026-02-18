@@ -2,13 +2,22 @@
  * Student Sync Utility
  *
  * Syncs survey respondents from Google Sheets API to the students table.
- * Also provides mock data generation for testing.
+ *
+ * Column Mapping (Cybersecurity Training Cohort Assessment):
+ * - Column A (Index 0): Timestamp
+ * - Column B (Index 1): Email - PRIMARY IDENTIFIER
+ * - Column C (Index 2): Journey Level
+ * - Column D (Index 3): Target Role
+ * - Column E (Index 4): Roadblock
+ * - Column F (Index 5): Weekly Hours
+ * - Column G (Index 6): Country
+ * - Column H (Index 7): Certifications
  */
 
 import { supabase } from "@/lib/supabase";
 import { normalizeCountry } from "@/data/surveyData";
 
-// Google Sheets API URL (same as used in LandingPage)
+// Google Sheets API URL
 const SURVEY_API_URL =
   "https://script.google.com/macros/s/AKfycbyBIkLx7lvdgtzasUZChLlo--wf0fb8FYaUH9fwvz5A6aAy7NhT1dmEvACpMAkk6nmDNw/exec";
 
@@ -17,20 +26,19 @@ const SURVEY_API_URL =
 // ============================================================
 
 export interface SurveyResponse {
-  timestamp: string;
-  name?: string; // Optional name field from survey
-  journey: string;
-  role: string;
-  roadblock: string;
-  time: string;
-  country: string;
-  certs: string;
-  suggestion?: string;
+  timestamp: string;   // Column A
+  email: string;       // Column B - PRIMARY IDENTIFIER
+  journey: string;     // Column C
+  role: string;        // Column D
+  roadblock: string;   // Column E
+  time: string;        // Column F
+  country: string;     // Column G
+  certs: string;       // Column H
 }
 
 export interface StudentInsert {
   email: string;
-  full_name: string | null;
+  full_name: string;
   country: string;
   journey_level: string;
   target_role: string;
@@ -46,6 +54,34 @@ export interface SyncResult {
   skipped: number;
   errors: string[];
   details: string[];
+}
+
+// ============================================================
+// Validation Functions
+// ============================================================
+
+/**
+ * Checks if a string looks like a valid email address
+ */
+function isValidEmail(str: string | undefined | null): boolean {
+  if (!str || typeof str !== "string") return false;
+  const trimmed = str.trim();
+  // Basic email pattern: something@something.something
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailPattern.test(trimmed);
+}
+
+/**
+ * Extracts the name part from an email (before the @)
+ * Cleans it up for display
+ */
+function getNameFromEmail(email: string): string {
+  const prefix = email.split("@")[0];
+  // Replace dots, underscores, hyphens with spaces and capitalize
+  return prefix
+    .replace(/[._-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
 }
 
 // ============================================================
@@ -67,67 +103,28 @@ export async function fetchSurveyResponses(): Promise<SurveyResponse[]> {
 }
 
 /**
- * Generates a unique email identifier from timestamp
- * Since survey doesn't collect emails, we create a pseudo-email
+ * Converts a survey response to a student insert object
+ * Returns null if the row should be skipped (no valid email)
  */
-function generateEmailFromTimestamp(timestamp: string): string {
-  // Clean timestamp to create a unique identifier
-  const cleaned = timestamp
-    .replace(/[\/\s:]/g, "-")
-    .replace(/[^a-zA-Z0-9-]/g, "")
-    .toLowerCase();
-  return `student-${cleaned}@survey.local`;
-}
-
-/**
- * Checks if a string looks like a timestamp/date
- */
-function looksLikeTimestamp(str: string): boolean {
-  if (!str) return false;
-  // Check for common date patterns
-  const datePatterns = [
-    /^\d{1,2}\/\d{1,2}\/\d{2,4}/, // 2/10/2026
-    /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s/i, // Sun Feb 08
-    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s/i, // Feb 08
-    /^\d{4}-\d{2}-\d{2}/, // 2026-02-08
-    /^Student\s+(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s/i, // Student Sun Feb
-    /^Student\s+\d{1,2}[-\/]/i, // Student 2/10 or Student 2-10
-  ];
-  return datePatterns.some(pattern => pattern.test(str.trim()));
-}
-
-/**
- * Generates a display name from survey data
- * Priority: 1) Real name from survey, 2) null (let UI handle fallback)
- */
-function generateDisplayName(response: SurveyResponse): string | null {
-  // Check if survey has a name field with a real name
-  if (response.name && response.name.trim()) {
-    const name = response.name.trim();
-    // Make sure it's not a timestamp
-    if (!looksLikeTimestamp(name)) {
-      return name;
-    }
+function surveyToStudent(response: SurveyResponse): StudentInsert | null {
+  // SKIP rows without valid email - this is our primary identifier
+  if (!isValidEmail(response.email)) {
+    return null;
   }
 
-  // Don't generate fake names - return null and let UI show email
-  return null;
-}
+  const email = response.email.trim().toLowerCase();
 
-/**
- * Converts a survey response to a student insert object
- */
-function surveyToStudent(response: SurveyResponse): StudentInsert {
   return {
-    email: generateEmailFromTimestamp(response.timestamp),
-    full_name: generateDisplayName(response),
-    country: normalizeCountry(response.country),
+    email: email,
+    // Use email-derived name since there's no Name column
+    full_name: getNameFromEmail(email),
+    country: normalizeCountry(response.country) || "",
     journey_level: response.journey || "",
     target_role: response.role || "",
     roadblock: response.roadblock || "",
     weekly_hours: response.time || "",
     certifications: response.certs || "",
-    survey_timestamp: response.timestamp,
+    survey_timestamp: response.timestamp || "",
   };
 }
 
@@ -137,9 +134,8 @@ function surveyToStudent(response: SurveyResponse): StudentInsert {
 function deduplicateByEmail(students: StudentInsert[]): StudentInsert[] {
   const emailMap = new Map<string, StudentInsert>();
 
-  // Iterate through all students - later entries overwrite earlier ones
   for (const student of students) {
-    emailMap.set(student.email, student);
+    emailMap.set(student.email.toLowerCase(), student);
   }
 
   return Array.from(emailMap.values());
@@ -147,7 +143,7 @@ function deduplicateByEmail(students: StudentInsert[]): StudentInsert[] {
 
 /**
  * Syncs all survey respondents to the students table
- * Uses upsert to handle duplicates (updates existing records based on email)
+ * Only imports rows with valid email addresses
  */
 export async function syncSurveyToStudents(): Promise<SyncResult> {
   const result: SyncResult = {
@@ -164,19 +160,34 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
     const responses = await fetchSurveyResponses();
     result.details.push(`Found ${responses.length} survey responses`);
 
-    // 2. Convert all responses to student records
-    const allStudents: StudentInsert[] = responses.map((response) =>
-      surveyToStudent(response)
-    );
+    // 2. Convert responses to student records, skipping invalid rows
+    const validStudents: StudentInsert[] = [];
+    let skippedNoEmail = 0;
+
+    for (const response of responses) {
+      const student = surveyToStudent(response);
+      if (student) {
+        validStudents.push(student);
+      } else {
+        skippedNoEmail++;
+      }
+    }
+
+    result.details.push(`${skippedNoEmail} rows skipped (no valid email)`);
+    result.skipped = skippedNoEmail;
 
     // 3. Deduplicate by email (keep last occurrence = most recent)
-    const uniqueStudents = deduplicateByEmail(allStudents);
-    const duplicatesFiltered = allStudents.length - uniqueStudents.length;
+    const uniqueStudents = deduplicateByEmail(validStudents);
+    const duplicatesFiltered = validStudents.length - uniqueStudents.length;
 
-    console.log(`Filtered ${allStudents.length} rows down to ${uniqueStudents.length} unique students`);
-    result.details.push(`Filtered ${allStudents.length} rows down to ${uniqueStudents.length} unique students (${duplicatesFiltered} duplicates removed)`);
+    if (duplicatesFiltered > 0) {
+      result.details.push(`${duplicatesFiltered} duplicate emails merged`);
+    }
 
-    // 4. Upsert unique students (insert or update on email conflict)
+    console.log(`Syncing ${uniqueStudents.length} unique students (skipped ${skippedNoEmail} without email, merged ${duplicatesFiltered} duplicates)`);
+    result.details.push(`Ready to sync ${uniqueStudents.length} unique students`);
+
+    // 4. Upsert unique students
     if (uniqueStudents.length > 0) {
       const { data, error } = await supabase
         .from("students")
@@ -189,6 +200,8 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
         result.imported = data?.length || 0;
         result.details.push(`Successfully synced ${result.imported} students`);
       }
+    } else {
+      result.details.push("No valid students to sync");
     }
 
     result.success = result.errors.length === 0;
@@ -206,18 +219,18 @@ export async function syncSurveyToStudents(): Promise<SyncResult> {
 
 const MOCK_STUDENTS: StudentInsert[] = [
   {
-    email: "alice.cloud@test.local",
+    email: "alice.chen@example.com",
     full_name: "Alice Chen",
     country: "United States",
     journey_level: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.",
     target_role: "Architecture: Cloud Security / Security Engineering",
     roadblock: "Technical Skills: I struggle with hands-on tools",
-    weekly_hours: "Dedicated: 5–10 hours",
+    weekly_hours: "Dedicated: 5-10 hours",
     certifications: "AWS Solutions Architect, Security+",
     survey_timestamp: "2/10/2026 09:00:00",
   },
   {
-    email: "bob.network@test.local",
+    email: "bob.martinez@example.com",
     full_name: "Bob Martinez",
     country: "Canada",
     journey_level: "Knowledgeable: I have some certifications or am currently studying (e.g., Security+, ISC2 CC).",
@@ -228,18 +241,18 @@ const MOCK_STUDENTS: StudentInsert[] = [
     survey_timestamp: "2/10/2026 10:00:00",
   },
   {
-    email: "carol.compliance@test.local",
+    email: "carol.williams@example.com",
     full_name: "Carol Williams",
     country: "United Kingdom",
     journey_level: "Security Professional: I already work in Security but want to level up my advanced skills.",
     target_role: "Governance: GRC (Governance, Risk, and Compliance) / Auditing",
     roadblock: "Career Guidance: I don't know how to navigate the job market or interviews",
-    weekly_hours: "Focused: 2–5 hours",
+    weekly_hours: "Focused: 2-5 hours",
     certifications: "CISA, CISSP",
     survey_timestamp: "2/10/2026 11:00:00",
   },
   {
-    email: "david.pentest@test.local",
+    email: "david.okonkwo@example.com",
     full_name: "David Okonkwo",
     country: "Rwanda",
     journey_level: "Absolute Beginner: I am just starting and have no IT/Security background.",
@@ -250,13 +263,13 @@ const MOCK_STUDENTS: StudentInsert[] = [
     survey_timestamp: "2/10/2026 12:00:00",
   },
   {
-    email: "emma.soc@test.local",
+    email: "emma.nakamura@example.com",
     full_name: "Emma Nakamura",
     country: "Japan",
     journey_level: "IT Professional: I work in IT (Helpdesk, SysAdmin) and want to pivot to Security.",
     target_role: "Defensive: Incident Response / SOC Analyst / Threat Hunting",
     roadblock: "Theory Overload: I have certifications but struggle applying them",
-    weekly_hours: "Dedicated: 5–10 hours",
+    weekly_hours: "Dedicated: 5-10 hours",
     certifications: "Security+, CySA+, Splunk Certified",
     survey_timestamp: "2/10/2026 13:00:00",
   },
