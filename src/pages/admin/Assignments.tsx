@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -588,6 +588,46 @@ export default function Assignments() {
     }
   };
 
+  // Reset assignments state
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetAllAssignments = async () => {
+    // Safety confirmation
+    const confirmed = window.confirm(
+      "Are you sure? This will unassign all students from their trainers. You will need to run the Auto-Assign again."
+    );
+    if (!confirmed) return;
+
+    setResetting(true);
+
+    try {
+      // Delete all assignments (keeps students intact)
+      const { error } = await supabase
+        .from("assignments")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all records
+
+      if (error) throw error;
+
+      toast({
+        title: "Assignments Reset",
+        description: `Successfully removed all assignments. ${assignedStudents.length} students are now unassigned.`,
+      });
+
+      // Reload data to reflect changes
+      await loadData();
+    } catch (error: any) {
+      console.error("Reset assignments error:", error);
+      toast({
+        title: "Reset Failed",
+        description: error.message || "Failed to reset assignments.",
+        variant: "destructive",
+      });
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -921,6 +961,54 @@ export default function Assignments() {
                   />
                 ))
               )}
+            </motion.div>
+          )}
+
+          {/* Danger Zone */}
+          {assignedStudents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-12 pt-8 border-t border-border/50"
+            >
+              <Card className="bg-red-500/5 border-red-500/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-red-400 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Danger Zone
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-medium text-foreground">Reset All Assignments</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Remove all student-trainer assignments. Students will remain in the database
+                        and can be re-assigned using Auto-Assign.
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      onClick={handleResetAllAssignments}
+                      disabled={resetting || loading || assignedStudents.length === 0}
+                      className="gap-2 whitespace-nowrap"
+                    >
+                      {resetting ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Resetting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4" />
+                          Reset All Assignments
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
         </div>
