@@ -90,15 +90,17 @@ function getScoreBg(score: number): string {
 interface StudentCardProps {
   student: StudentRow;
   trainers: TrainerForMatching[];
+  trainerCounts: Map<string, number>;
   onAssigned: () => void;
 }
 
-function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
+function StudentCard({ student, trainers, trainerCounts, onAssigned }: StudentCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [matching, setMatching] = useState(false);
   const [matches, setMatches] = useState<MatchScore[] | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [manualTrainerId, setManualTrainerId] = useState<string>("");
 
   const handleFindMatch = async () => {
     setMatching(true);
@@ -369,6 +371,55 @@ function StudentCard({ student, trainers, onAssigned }: StudentCardProps) {
                 No suitable trainers found. Try adding more trainers or updating their profiles.
               </p>
             )}
+
+            {/* Manual Override */}
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                Or Manually Assign
+              </h4>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <select
+                  value={manualTrainerId}
+                  onChange={(e) => setManualTrainerId(e.target.value)}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Select a trainer…</option>
+                  {trainers.map((t) => {
+                    const count = trainerCounts.get(t.id) || 0;
+                    const max = t.max_capacity || t.max_students || 25;
+                    const isFull = count >= max;
+                    return (
+                      <option key={t.id} value={t.id} disabled={isFull}>
+                        {t.full_name || "Unknown"} ({count}/{max}){isFull ? " — Full" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const trainer = trainers.find((t) => t.id === manualTrainerId);
+                    if (trainer) {
+                      handleAssign(trainer.id, trainer.full_name || "Unknown");
+                    }
+                  }}
+                  disabled={!manualTrainerId || assigning === manualTrainerId}
+                  className="gap-1 whitespace-nowrap"
+                >
+                  {assigning === manualTrainerId ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3 w-3" />
+                      Confirm
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </motion.div>
         )}
       </CardContent>
@@ -501,6 +552,7 @@ export default function Assignments() {
   const [unassignedStudents, setUnassignedStudents] = useState<StudentRow[]>([]);
   const [assignedStudents, setAssignedStudents] = useState<(StudentRow & { assignment: AssignmentRow })[]>([]);
   const [trainers, setTrainers] = useState<TrainerForMatching[]>([]);
+  const [trainerCounts, setTrainerCounts] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
 
   // Bulk assignment state
@@ -653,7 +705,16 @@ export default function Assignments() {
 
       if (assignmentsError) throw assignmentsError;
 
-      // 3. Separate assigned vs unassigned
+      // 3. Build trainer assignment counts from the assignments data
+      const counts = new Map<string, number>();
+      for (const a of assignments || []) {
+        if (a.status === "active") {
+          counts.set(a.trainer_id, (counts.get(a.trainer_id) || 0) + 1);
+        }
+      }
+      setTrainerCounts(counts);
+
+      // 4. Separate assigned vs unassigned
       const assignedIds = new Set((assignments || []).map((a) => a.student_id));
 
       const unassigned: StudentRow[] = [];
@@ -673,7 +734,7 @@ export default function Assignments() {
       setUnassignedStudents(unassigned);
       setAssignedStudents(assigned);
 
-      // 4. Fetch active trainers for matching
+      // 5. Fetch active trainers for matching
       const trainerData = await fetchActiveTrainers();
       setTrainers(trainerData);
 
@@ -929,6 +990,7 @@ export default function Assignments() {
                     key={student.id}
                     student={student}
                     trainers={trainers}
+                    trainerCounts={trainerCounts}
                     onAssigned={loadData}
                   />
                 ))
