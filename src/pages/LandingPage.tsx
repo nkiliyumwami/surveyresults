@@ -12,6 +12,8 @@ import {
   ArrowRight,
   ChevronRight,
   Sparkles,
+  Search,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
@@ -33,6 +35,71 @@ export default function LandingPage() {
   const [countryData, setCountryData] = useState<CountryData[]>([]);
   const [stats, setStats] = useState({ students: 0, trainers: 0 });
   const [loading, setLoading] = useState(true);
+
+  // --- Find Your Trainer ---
+  const [trainerSearchEmail, setTrainerSearchEmail] = useState("");
+  const [trainerSearching, setTrainerSearching] = useState(false);
+  const [trainerResult, setTrainerResult] = useState<{
+    studentName: string;
+    trainerName: string;
+    trainerEmail: string;
+  } | null>(null);
+  const [trainerSearchError, setTrainerSearchError] = useState<string | null>(null);
+
+  async function handleTrainerSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const emailTrimmed = trainerSearchEmail.trim().toLowerCase();
+    if (!emailTrimmed) return;
+
+    setTrainerSearching(true);
+    setTrainerResult(null);
+    setTrainerSearchError(null);
+
+    try {
+      const { data: student, error: studentErr } = await supabase
+        .from("students")
+        .select("id, full_name")
+        .eq("email", emailTrimmed)
+        .maybeSingle();
+
+      if (studentErr) throw studentErr;
+      if (!student) {
+        setTrainerSearchError("No student found with that email. Please check and try again.");
+        return;
+      }
+
+      const { data: assignment, error: assignErr } = await supabase
+        .from("assignments")
+        .select("trainer:trainer_profiles(full_name, email, is_active)")
+        .eq("student_id", student.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (assignErr) throw assignErr;
+
+      const trainer = assignment?.trainer as {
+        full_name: string | null;
+        email: string | null;
+        is_active: boolean;
+      } | null;
+
+      if (!assignment || !trainer || !trainer.is_active) {
+        setTrainerSearchError("No active trainer assignment found yet. Please check back soon!");
+        return;
+      }
+
+      setTrainerResult({
+        studentName: student.full_name || emailTrimmed,
+        trainerName: trainer.full_name || "Your Trainer",
+        trainerEmail: trainer.email || "—",
+      });
+    } catch (err: any) {
+      console.error("Trainer search error:", err);
+      setTrainerSearchError("Something went wrong. Please try again.");
+    } finally {
+      setTrainerSearching(false);
+    }
+  }
 
   useEffect(() => {
     async function fetchStats() {
@@ -191,6 +258,55 @@ export default function LandingPage() {
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Find Your Trainer */}
+      <section className="relative z-10 py-8 sm:py-12">
+        <div className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-xl border-2 border-primary/40 bg-secondary p-5 sm:p-6 shadow-lg">
+            <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+              <Search className="h-5 w-5 text-primary" />
+              Find Your Trainer
+            </h2>
+            <form onSubmit={handleTrainerSearch} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="email"
+                value={trainerSearchEmail}
+                onChange={(e) => setTrainerSearchEmail(e.target.value)}
+                placeholder="Enter your email address…"
+                required
+                className="flex-1 rounded-md border-2 border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={trainerSearching || !trainerSearchEmail.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
+              >
+                {trainerSearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                Search
+              </button>
+            </form>
+
+            {trainerResult && (
+              <div className="mt-4 rounded-md border border-green-500/40 bg-green-500/10 px-4 py-3">
+                <p className="text-sm text-foreground">
+                  Hi <strong>{trainerResult.studentName}</strong>! Your trainer is{" "}
+                  <strong>{trainerResult.trainerName}</strong> ({trainerResult.trainerEmail}).
+                </p>
+              </div>
+            )}
+
+            {trainerSearchError && (
+              <div className="mt-4 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-4 py-3">
+                <p className="text-sm text-yellow-200">{trainerSearchError}</p>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
