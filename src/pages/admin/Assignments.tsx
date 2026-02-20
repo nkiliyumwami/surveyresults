@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -750,6 +750,40 @@ export default function Assignments() {
     }
   };
 
+  function exportAssignmentsCSV() {
+    // Sort by trainer name, then student name
+    const sorted = [...assignedStudents].sort((a, b) => {
+      const trainerA = a.assignment.trainer?.full_name || "";
+      const trainerB = b.assignment.trainer?.full_name || "";
+      const cmp = trainerA.localeCompare(trainerB);
+      if (cmp !== 0) return cmp;
+      return (a.full_name || "").localeCompare(b.full_name || "");
+    });
+
+    const header = ["Trainer Name", "Student Name", "Student Email", "Track", "Country"];
+    const rows = sorted.map((s) => [
+      s.assignment.trainer?.full_name || "",
+      s.full_name || "",
+      s.email || "",
+      s.target_role || "",
+      s.country || "",
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `assignments-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     loadData();
   }, []);
@@ -950,11 +984,21 @@ export default function Assignments() {
               <Check className="h-4 w-4" />
               Completed Assignments ({assignedStudents.length})
             </Button>
+            {activeTab === "assigned" && assignedStudents.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={exportAssignmentsCSV}
+                className="ml-auto gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download CSV
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={loadData}
               disabled={loading}
-              className="ml-auto gap-2"
+              className={`${activeTab !== "assigned" || assignedStudents.length === 0 ? "ml-auto" : ""} gap-2`}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
