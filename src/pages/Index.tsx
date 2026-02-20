@@ -397,60 +397,45 @@ Generated from Cybersecurity Mentorship Survey Dashboard`;
         />
 
         {/* Find Your Trainer */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-4 sm:mt-6"
-        >
-          <div className="card-cyber p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-              <Search className="h-4 w-4 text-primary" />
-              Find Your Trainer
-            </h2>
-            <form onSubmit={handleTrainerSearch} className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="email"
-                value={trainerSearchEmail}
-                onChange={(e) => setTrainerSearchEmail(e.target.value)}
-                placeholder="Enter your email address…"
-                required
-                className="flex-1 rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-              <button
-                type="submit"
-                disabled={trainerSearching || !trainerSearchEmail.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
-              >
-                {trainerSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                Search
-              </button>
-            </form>
+        <div className="relative z-10 mt-4 sm:mt-6 rounded-xl border-2 border-primary/40 bg-secondary p-4 sm:p-5 shadow-lg">
+          <h2 className="text-base font-semibold text-foreground flex items-center gap-2 mb-3">
+            <Search className="h-5 w-5 text-primary" />
+            Find Your Trainer
+          </h2>
+          <form onSubmit={handleTrainerSearch} className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={trainerSearchEmail}
+              onChange={(e) => setTrainerSearchEmail(e.target.value)}
+              placeholder="Enter your email address…"
+              required
+              className="flex-1 rounded-md border-2 border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+            <button
+              type="submit"
+              disabled={trainerSearching || !trainerSearchEmail.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
+            >
+              {trainerSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Search
+            </button>
+          </form>
 
-            {trainerResult && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-3 rounded-md border border-cyber-green/30 bg-cyber-green/10 px-4 py-3"
-              >
-                <p className="text-sm text-foreground">
-                  Hi <strong>{trainerResult.studentName}</strong>! Your trainer is{" "}
-                  <strong>{trainerResult.trainerName}</strong> ({trainerResult.trainerEmail}).
-                </p>
-              </motion.div>
-            )}
+          {trainerResult && (
+            <div className="mt-3 rounded-md border border-cyber-green/40 bg-cyber-green/15 px-4 py-3">
+              <p className="text-sm text-foreground">
+                Hi <strong>{trainerResult.studentName}</strong>! Your trainer is{" "}
+                <strong>{trainerResult.trainerName}</strong> ({trainerResult.trainerEmail}).
+              </p>
+            </div>
+          )}
 
-            {trainerSearchError && (
-              <motion.div
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-3 rounded-md border border-cyber-amber/30 bg-cyber-amber/10 px-4 py-3"
-              >
-                <p className="text-sm text-cyber-amber">{trainerSearchError}</p>
-              </motion.div>
-            )}
-          </div>
-        </motion.div>
+          {trainerSearchError && (
+            <div className="mt-3 rounded-md border border-cyber-amber/40 bg-cyber-amber/15 px-4 py-3">
+              <p className="text-sm text-cyber-amber">{trainerSearchError}</p>
+            </div>
+          )}
+        </div>
 
         {/* Filters */}
         <div className="mt-4 sm:mt-6">
