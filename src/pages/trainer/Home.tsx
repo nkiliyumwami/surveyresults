@@ -1,33 +1,136 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, Calendar, Award, UserRound, LogOut, Mail, Settings2 } from "lucide-react";
+import { ShieldCheck, Calendar, Award, UserRound, LogOut, Mail, Settings2, AlertTriangle, Download, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 
+type AssignedStudent = {
+  id: string;
+  full_name: string;
+  email: string;
+  country: string;
+  journey_level: string;
+  target_role: string;
+  weekly_hours: string;
+};
+
 export default function TrainerHome() {
   const navigate = useNavigate();
   const [email, setEmail] = useState<string>("—");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isActive, setIsActive] = useState<boolean | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [assignedStudents, setAssignedStudents] = useState<AssignedStudent[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [trainerId, setTrainerId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getUser().then(({ data, error }) => {
+    (async () => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
       if (!mounted) return;
-      if (error) {
-        console.error("getUser error:", error);
+      if (userError || !userData.user) {
+        console.error("getUser error:", userError);
         setEmail("—");
+        setLoadingStatus(false);
         return;
       }
-      setEmail(data.user?.email ?? "—");
-    });
+
+      setEmail(userData.user.email ?? "—");
+
+      // Check trainer active status and get trainer profile id
+      const { data: profile, error: profileError } = await supabase
+        .from("trainer_profiles")
+        .select("id, is_active")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        setIsActive(false);
+      } else {
+        const active = profile?.is_active === true;
+        setIsActive(active);
+        if (active && profile?.id) {
+          setTrainerId(profile.id);
+        }
+      }
+      setLoadingStatus(false);
+    })();
 
     return () => {
       mounted = false;
     };
   }, []);
+
+  // Fetch assigned students once we know the trainer id
+  useEffect(() => {
+    if (!trainerId) return;
+    let mounted = true;
+
+    (async () => {
+      setLoadingStudents(true);
+      try {
+        const { data, error } = await supabase
+          .from("assignments")
+          .select("student:students(id, full_name, email, country, journey_level, target_role, weekly_hours)")
+          .eq("trainer_id", trainerId)
+          .eq("status", "active");
+
+        if (error) throw error;
+        if (!mounted) return;
+
+        const students: AssignedStudent[] = (data || [])
+          .map((row: any) => row.student)
+          .filter(Boolean)
+          .map((s: any) => ({
+            id: s.id,
+            full_name: s.full_name || "—",
+            email: s.email || "—",
+            country: s.country || "—",
+            journey_level: s.journey_level || "—",
+            target_role: s.target_role || "—",
+            weekly_hours: s.weekly_hours || "—",
+          }));
+
+        setAssignedStudents(students);
+      } catch (err) {
+        console.error("Failed to load assigned students:", err);
+      } finally {
+        if (mounted) setLoadingStudents(false);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [trainerId]);
+
+  function downloadRosterCSV() {
+    const header = ["Name", "Email", "Country", "Journey Level", "Target Role", "Weekly Hours"];
+    const rows = assignedStudents.map((s) => [
+      s.full_name,
+      s.email,
+      s.country,
+      s.journey_level,
+      s.target_role,
+      s.weekly_hours,
+    ]);
+
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `my-students-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -49,6 +152,50 @@ export default function TrainerHome() {
       <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[300px] sm:h-[500px] w-[400px] sm:w-[800px] rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
       <main className="relative mx-auto max-w-7xl px-3 pt-20 pb-4 sm:px-6 sm:pt-24 sm:pb-8 lg:px-8">
+        {loadingStatus ? (
+          <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
+            Loading...
+          </div>
+        ) : !isActive ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="card-cyber p-6 sm:p-10 text-center"
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-yellow-500/10">
+              <AlertTriangle className="h-7 w-7 text-yellow-500" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground">
+              Account Pending Activation
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Your account is pending administrator activation. Please contact the admin to begin receiving student assignments.
+            </p>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate("/trainer/profile")}
+                className="gap-2"
+              >
+                <Settings2 className="h-4 w-4" />
+                Edit Profile
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                {loggingOut ? "Signing out..." : "Logout"}
+              </Button>
+            </div>
+          </motion.div>
+        ) : (
+        <>
         {/* Header Card */}
         <motion.header
           initial={{ opacity: 0, y: 10 }}
@@ -100,29 +247,70 @@ export default function TrainerHome() {
           </div>
         </motion.header>
 
-        {/* Next Steps Cards */}
-        <div className="mt-4 sm:mt-6 grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="card-cyber p-4 sm:p-5"
-          >
+        {/* Assigned Students */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="mt-4 sm:mt-6 card-cyber p-4 sm:p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <UserRound className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">Trainer Profile</h2>
+              <Users className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">
+                My Students ({assignedStudents.length})
+              </h2>
             </div>
-            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Add your name, timezone, contact, and a short bio so students can be
-              matched appropriately.
-            </p>
-            <div className="mt-4">
-              <Button variant="secondary" className="w-full" onClick={() => navigate("/trainer/profile")}>
-                Complete / Edit Profile
-              </Button>
-            </div>
-          </motion.section>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2"
+              disabled={assignedStudents.length === 0}
+              onClick={downloadRosterCSV}
+            >
+              <Download className="h-4 w-4" />
+              Download Roster (CSV)
+            </Button>
+          </div>
 
+          {loadingStudents ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Loading students...
+            </div>
+          ) : assignedStudents.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No students assigned yet. Check back after the admin runs assignments.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border/60">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-medium">Name</th>
+                    <th className="px-3 py-2 font-medium">Email</th>
+                    <th className="px-3 py-2 font-medium hidden md:table-cell">Country</th>
+                    <th className="px-3 py-2 font-medium hidden lg:table-cell">Journey</th>
+                    <th className="px-3 py-2 font-medium hidden lg:table-cell">Target Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignedStudents.map((s) => (
+                    <tr key={s.id} className="border-t border-border/60 hover:bg-muted/20">
+                      <td className="px-3 py-2 font-medium">{s.full_name}</td>
+                      <td className="px-3 py-2">{s.email}</td>
+                      <td className="px-3 py-2 hidden md:table-cell">{s.country}</td>
+                      <td className="px-3 py-2 hidden lg:table-cell">{s.journey_level}</td>
+                      <td className="px-3 py-2 hidden lg:table-cell">{s.target_role}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.section>
+
+        {/* Quick Links */}
+        <div className="mt-4 sm:mt-6 grid grid-cols-1 gap-4 sm:gap-4 lg:grid-cols-3">
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -130,14 +318,31 @@ export default function TrainerHome() {
             className="card-cyber p-4 sm:p-5"
           >
             <div className="flex items-center gap-2">
-              <Award className="h-4 w-4 text-cyber-purple" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Expertise & Certifications
-              </h2>
+              <UserRound className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Trainer Profile</h2>
             </div>
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Choose your areas (SOC/IR, Pentest, GRC, Cloud, etc.) and list
-              certifications to help build cohorts.
+              Update your name, timezone, contact, and bio.
+            </p>
+            <div className="mt-4">
+              <Button variant="secondary" className="w-full" onClick={() => navigate("/trainer/profile")}>
+                Edit Profile
+              </Button>
+            </div>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            className="card-cyber p-4 sm:p-5"
+          >
+            <div className="flex items-center gap-2">
+              <Award className="h-4 w-4 text-cyber-purple" />
+              <h2 className="text-sm font-semibold text-foreground">Expertise</h2>
+            </div>
+            <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Update your areas of expertise and certifications.
             </p>
             <div className="mt-4">
               <Button variant="secondary" className="w-full" onClick={() => navigate("/trainer/profile")}>
@@ -157,8 +362,7 @@ export default function TrainerHome() {
               <h2 className="text-sm font-semibold text-foreground">Availability</h2>
             </div>
             <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Provide your weekly availability windows (days + times). We’ll use
-              this to schedule sessions and match students.
+              Set your weekly availability windows for scheduling.
             </p>
             <div className="mt-4">
               <Button variant="secondary" className="w-full" onClick={() => navigate("/trainer/profile")}>
@@ -179,6 +383,8 @@ export default function TrainerHome() {
             Trainer Portal • Next: invite trainers + optional role-based admin view
           </p>
         </motion.footer>
+        </>
+        )}
       </main>
     </div>
   );

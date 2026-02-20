@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trash2, Users } from "lucide-react";
+import { Download, Trash2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 
@@ -302,6 +302,30 @@ export default function Admin() {
     }
   }
 
+  function exportCSV() {
+    const header = ["Name", "Email", "Country", "Status"];
+    const rows = filtered.map((p) => [
+      p.full_name?.trim() || "",
+      p.email?.trim() || "",
+      p.country?.trim() || "",
+      p.is_active ? "Active" : "Inactive",
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `trainers-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -332,6 +356,10 @@ export default function Admin() {
               />
               <Button variant="outline" onClick={() => loadAll()} disabled={loading}>
                 Refresh
+              </Button>
+              <Button variant="outline" onClick={exportCSV} disabled={loading || filtered.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
               </Button>
               <Button asChild>
                 <Link to="/admin/assignments" className="gap-2">
@@ -438,12 +466,23 @@ export default function Admin() {
                             </td>
 
                             <td className="px-3 py-2 text-right">
-                              <Button
-                                variant="secondary"
-                                onClick={() => setSelected(p)}
-                              >
-                                View
-                              </Button>
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => setSelected(p)}
+                                >
+                                  View
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  disabled={isBusy || !p.user_id}
+                                  onClick={() => deleteTrainer(p.user_id!, p.full_name?.trim() || "Unknown")}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );

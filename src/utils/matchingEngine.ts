@@ -33,6 +33,7 @@ export interface TrainerForMatching {
   max_capacity?: number | null;
   max_students?: number | null;
   is_active?: boolean | null;
+  status?: string | null;               // e.g., "Active", "Inactive"
 }
 
 export interface MatchScore {
@@ -531,7 +532,13 @@ export async function bulkAutoAssign(
     return result;
   }
 
-  if (trainers.length === 0) {
+  // Filter to only active trainers (status === 'Active' or is_active === true)
+  const activeTrainers = trainers.filter((t) => {
+    if (t.status != null) return t.status === "Active";
+    return t.is_active !== false;
+  });
+
+  if (activeTrainers.length === 0) {
     result.errors.push("No active trainers available");
     return result;
   }
@@ -541,7 +548,7 @@ export async function bulkAutoAssign(
 
   // Create a working copy of trainer capacities
   const trainerCapacities = new Map<string, { current: number; max: number }>();
-  for (const trainer of trainers) {
+  for (const trainer of activeTrainers) {
     const maxCapacity = trainer.max_capacity || trainer.max_students || 25;
     const currentCount = trainerCounts.get(trainer.id) || 0;
     trainerCapacities.set(trainer.id, { current: currentCount, max: maxCapacity });
@@ -569,12 +576,12 @@ export async function bulkAutoAssign(
     });
 
     // Calculate scores for all trainers with available capacity
-    const availableTrainers = trainers.filter((t) => {
+    const trainersWithCapacity = activeTrainers.filter((t) => {
       const capacity = trainerCapacities.get(t.id);
       return capacity && capacity.current < capacity.max;
     });
 
-    if (availableTrainers.length === 0) {
+    if (trainersWithCapacity.length === 0) {
       result.noMatchFound++;
       result.errors.push(`No available trainers for ${student.full_name || student.id}`);
       continue;
@@ -585,7 +592,7 @@ export async function bulkAutoAssign(
     // since we're tracking capacity in memory
     let bestMatch: { trainerId: string; trainerName: string; score: number } | null = null;
 
-    for (const trainer of availableTrainers) {
+    for (const trainer of trainersWithCapacity) {
       const { score: availabilityScore } = calculateAvailabilityScore(student, trainer);
       const { score: skillsScore, matchedSkills } = calculateSkillsScore(student, trainer);
 
