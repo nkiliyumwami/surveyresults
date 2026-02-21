@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award, Search, Plus, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +35,11 @@ import {
 // Types
 // ============================================================
 
+interface CertEntry {
+  name: string;
+  credly_url: string;
+}
+
 interface StudentRow {
   id: string;
   email: string | null;
@@ -51,6 +56,7 @@ interface StudentRow {
   credly_url: string | null;
   profile_image_url: string | null;
   featured_in_certified_corner: boolean;
+  student_certifications: CertEntry[];
 }
 
 interface AssignmentRow {
@@ -443,6 +449,9 @@ interface AssignedStudentCardProps {
   onUpdated: () => void;
 }
 
+const EMPTY_CERT: CertEntry = { name: "", credly_url: "" };
+const MAX_CERTS = 4;
+
 function CertFieldsEditor({
   student,
   onUpdated,
@@ -450,21 +459,44 @@ function CertFieldsEditor({
   student: StudentRow;
   onUpdated: () => void;
 }) {
-  const [certName, setCertName] = useState(student.certification_name || "");
-  const [certDate, setCertDate] = useState(student.certification_date || "");
-  const [credlyUrl, setCredlyUrl] = useState(student.credly_url || "");
+  const existing: CertEntry[] =
+    Array.isArray(student.student_certifications) && student.student_certifications.length > 0
+      ? student.student_certifications
+      : student.certification_name
+        ? [{ name: student.certification_name, credly_url: student.credly_url || "" }]
+        : [{ ...EMPTY_CERT }];
+
+  const [certs, setCerts] = useState<CertEntry[]>(existing);
   const [imageUrl, setImageUrl] = useState(student.profile_image_url || "");
   const [saving, setSaving] = useState(false);
+
+  const updateCert = (index: number, field: keyof CertEntry, value: string) => {
+    setCerts((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
+  };
+
+  const addSlot = () => {
+    if (certs.length < MAX_CERTS) setCerts((prev) => [...prev, { ...EMPTY_CERT }]);
+  };
+
+  const removeSlot = (index: number) => {
+    setCerts((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Filter out empty slots
+      const cleaned = certs.filter((c) => c.name.trim() !== "");
+
+      // Keep legacy single fields in sync with first cert for backward compat
+      const first = cleaned[0] || null;
+
       const { error } = await supabase
         .from("students")
         .update({
-          certification_name: certName || null,
-          certification_date: certDate || null,
-          credly_url: credlyUrl || null,
+          student_certifications: cleaned,
+          certification_name: first?.name || null,
+          credly_url: first?.credly_url || null,
           profile_image_url: imageUrl || null,
         })
         .eq("id", student.id);
@@ -490,53 +522,80 @@ function CertFieldsEditor({
         <Award className="h-3.5 w-3.5" />
         Certification Details
       </h5>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <input
-          type="text"
-          placeholder="Certification name (e.g. ISC2 CC)"
-          value={certName}
-          onChange={(e) => setCertName(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-        <input
-          type="date"
-          value={certDate}
-          onChange={(e) => setCertDate(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-        <input
-          type="url"
-          placeholder="Credly badge URL"
-          value={credlyUrl}
-          onChange={(e) => setCredlyUrl(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
-        <input
-          type="url"
-          placeholder="Profile image URL"
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
+
+      {/* Profile Image URL — applies to the student overall */}
+      <input
+        type="url"
+        placeholder="Profile image URL"
+        value={imageUrl}
+        onChange={(e) => setImageUrl(e.target.value)}
+        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 mb-3"
+      />
+
+      {/* Certification Slots */}
+      <div className="space-y-2">
+        {certs.map((cert, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <span className="mt-2 text-xs font-medium text-muted-foreground w-4 flex-shrink-0">
+              {i + 1}.
+            </span>
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder={`Certification name (e.g. ISC2 CC)`}
+                value={cert.name}
+                onChange={(e) => updateCert(i, "name", e.target.value)}
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <input
+                type="url"
+                placeholder="Credly badge URL"
+                value={cert.credly_url}
+                onChange={(e) => updateCert(i, "credly_url", e.target.value)}
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            {certs.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeSlot(i)}
+                className="mt-1.5 p-1 rounded text-muted-foreground hover:text-red-400 transition-colors"
+                title="Remove certification"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ))}
       </div>
-      <Button
-        size="sm"
-        onClick={handleSave}
-        disabled={saving}
-        className="mt-2 gap-1"
-      >
-        {saving ? (
-          <>
-            <RefreshCw className="h-3 w-3 animate-spin" />
-            Saving...
-          </>
-        ) : (
-          <>
-            <Check className="h-3 w-3" />
-            Save Cert Details
-          </>
+
+      <div className="flex items-center gap-2 mt-2">
+        {certs.length < MAX_CERTS && (
+          <Button size="sm" variant="ghost" onClick={addSlot} className="gap-1 text-xs">
+            <Plus className="h-3 w-3" />
+            Add Certification
+          </Button>
         )}
-      </Button>
+
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={saving}
+          className="gap-1 ml-auto"
+        >
+          {saving ? (
+            <>
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Check className="h-3 w-3" />
+              Save Cert Details
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -713,6 +772,7 @@ export default function Assignments() {
   const [trainers, setTrainers] = useState<TrainerForMatching[]>([]);
   const [trainerCounts, setTrainerCounts] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
+  const [assignedSearch, setAssignedSearch] = useState("");
 
   // Bulk assignment state
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -1218,14 +1278,37 @@ export default function Assignments() {
                   </CardContent>
                 </Card>
               ) : (
-                assignedStudents.map(({ assignment, ...student }) => (
-                  <AssignedStudentCard
-                    key={student.id}
-                    student={student}
-                    assignment={assignment}
-                    onUpdated={loadData}
-                  />
-                ))
+                <>
+                  {/* Search Box */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search by name or email…"
+                      value={assignedSearch}
+                      onChange={(e) => setAssignedSearch(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                  </div>
+
+                  {assignedStudents
+                    .filter((s) => {
+                      if (!assignedSearch.trim()) return true;
+                      const q = assignedSearch.toLowerCase();
+                      return (
+                        (s.full_name || "").toLowerCase().includes(q) ||
+                        (s.email || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .map(({ assignment, ...student }) => (
+                      <AssignedStudentCard
+                        key={student.id}
+                        student={student}
+                        assignment={assignment}
+                        onUpdated={loadData}
+                      />
+                    ))}
+                </>
               )}
             </motion.div>
           )}
