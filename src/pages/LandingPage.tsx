@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { CertifiedCorner } from "@/components/landing/CertifiedCorner";
+import { LiveStats } from "@/components/landing/LiveStats";
 import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
 import { supabase } from "@/lib/supabase";
@@ -261,6 +262,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* Live Community Insights */}
+      <LiveStats />
 
       {/* Find Your Trainer */}
       <section className="relative z-10 py-8 sm:py-12">
