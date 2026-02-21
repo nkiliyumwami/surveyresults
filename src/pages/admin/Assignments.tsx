@@ -11,11 +11,12 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/use-toast";
 import { Navbar } from "@/components/layout/Navbar";
 import { Progress } from "@/components/ui/progress";
@@ -45,6 +46,11 @@ interface StudentRow {
   weekly_hours: string | null;
   certifications: string | null;
   created_at: string | null;
+  certification_name: string | null;
+  certification_date: string | null;
+  credly_url: string | null;
+  profile_image_url: string | null;
+  featured_in_certified_corner: boolean;
 }
 
 interface AssignmentRow {
@@ -434,10 +440,139 @@ function StudentCard({ student, trainers, trainerCounts, onAssigned }: StudentCa
 interface AssignedStudentCardProps {
   student: StudentRow;
   assignment: AssignmentRow;
+  onUpdated: () => void;
 }
 
-function AssignedStudentCard({ student, assignment }: AssignedStudentCardProps) {
+function CertFieldsEditor({
+  student,
+  onUpdated,
+}: {
+  student: StudentRow;
+  onUpdated: () => void;
+}) {
+  const [certName, setCertName] = useState(student.certification_name || "");
+  const [certDate, setCertDate] = useState(student.certification_date || "");
+  const [credlyUrl, setCredlyUrl] = useState(student.credly_url || "");
+  const [imageUrl, setImageUrl] = useState(student.profile_image_url || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({
+          certification_name: certName || null,
+          certification_date: certDate || null,
+          credly_url: credlyUrl || null,
+          profile_image_url: imageUrl || null,
+        })
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      toast({ title: "Certification details saved" });
+      onUpdated();
+    } catch (err: any) {
+      toast({
+        title: "Save failed",
+        description: err.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 p-3 rounded-lg bg-cyber-amber/5 border border-cyber-amber/20">
+      <h5 className="text-xs font-medium text-cyber-amber mb-2 flex items-center gap-1.5">
+        <Award className="h-3.5 w-3.5" />
+        Certification Details
+      </h5>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input
+          type="text"
+          placeholder="Certification name (e.g. ISC2 CC)"
+          value={certName}
+          onChange={(e) => setCertName(e.target.value)}
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          type="date"
+          value={certDate}
+          onChange={(e) => setCertDate(e.target.value)}
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          type="url"
+          placeholder="Credly badge URL"
+          value={credlyUrl}
+          onChange={(e) => setCredlyUrl(e.target.value)}
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <input
+          type="url"
+          placeholder="Profile image URL"
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+      </div>
+      <Button
+        size="sm"
+        onClick={handleSave}
+        disabled={saving}
+        className="mt-2 gap-1"
+      >
+        {saving ? (
+          <>
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            Saving...
+          </>
+        ) : (
+          <>
+            <Check className="h-3 w-3" />
+            Save Cert Details
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudentCardProps) {
   const [showDetails, setShowDetails] = useState(false);
+  const [featureBusy, setFeatureBusy] = useState(false);
+
+  const toggleFeatured = async () => {
+    setFeatureBusy(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({
+          featured_in_certified_corner: !student.featured_in_certified_corner,
+        })
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      toast({
+        title: student.featured_in_certified_corner
+          ? "Removed from Certified Corner"
+          : "Added to Certified Corner",
+      });
+      onUpdated();
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setFeatureBusy(false);
+    }
+  };
 
   return (
     <Card className="bg-card/50 border-border/50">
@@ -456,6 +591,12 @@ function AssignedStudentCard({ student, assignment }: AssignedStudentCardProps) 
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
                 {assignment.status}
               </Badge>
+              {student.featured_in_certified_corner && (
+                <Badge variant="outline" className="text-xs bg-cyber-amber/10 text-cyber-amber border-cyber-amber/30">
+                  <Award className="h-3 w-3 mr-1" />
+                  Featured
+                </Badge>
+              )}
             </div>
 
             {/* Line 2: Email */}
@@ -535,7 +676,25 @@ function AssignedStudentCard({ student, assignment }: AssignedStudentCardProps) 
                 <p className="text-muted-foreground mb-1">Certifications:</p>
                 <p className="text-foreground">{student.certifications || "None listed"}</p>
               </div>
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="h-4 w-4 text-cyber-amber" />
+                    <span className="text-muted-foreground">Featured in Certified Corner:</span>
+                  </div>
+                  <Switch
+                    checked={student.featured_in_certified_corner}
+                    disabled={featureBusy}
+                    onCheckedChange={toggleFeatured}
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Cert fields editor — only when featured */}
+            {student.featured_in_certified_corner && (
+              <CertFieldsEditor student={student} onUpdated={onUpdated} />
+            )}
           </motion.div>
         )}
       </CardContent>
@@ -1064,6 +1223,7 @@ export default function Assignments() {
                     key={student.id}
                     student={student}
                     assignment={assignment}
+                    onUpdated={loadData}
                   />
                 ))
               )}

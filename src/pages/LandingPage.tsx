@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
+import { CertifiedCorner } from "@/components/landing/CertifiedCorner";
 import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
 import { supabase } from "@/lib/supabase";
@@ -337,6 +338,9 @@ export default function LandingPage() {
           )}
         </div>
       </section>
+
+      {/* Certified Corner */}
+      <CertifiedCorner />
 
       {/* How It Works Section */}
       <section className="py-16 sm:py-24 relative bg-muted/20">
