@@ -369,21 +369,21 @@ export default function StudentProfile() {
 
                     <ul className="space-y-2 text-sm text-muted-foreground">
                       <li className="flex gap-2">
-                        <span className="text-cyber-purple mt-0.5">&#x2022;</span>
+                        <span className="text-cyber-purple mt-0.5">&#x2728;</span>
                         <span>
-                          You are requesting one of our <strong className="text-foreground">20 exclusive Elite AI seats</strong> on our private Enterprise-grade workspace.
+                          <strong className="text-foreground">Exclusive Invitation:</strong> As a verified student, you are eligible to claim one of our <strong className="text-foreground">20 exclusive Elite AI seats</strong>.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="text-cyber-purple mt-0.5">&#x2022;</span>
                         <span>
-                          While a standard Team-level license is <strong className="text-foreground">$30+ USD/month</strong>, our members unlock this power for just <strong className="text-foreground">$8/month</strong>—a 75% discount secured specifically for this cohort.
+                          Standard Enterprise-grade licenses are <strong className="text-foreground">$30+ USD/month</strong>, but you can unlock this power for just <strong className="text-foreground">$8/month</strong>—a 75% professional discount.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="text-cyber-purple mt-0.5">&#x2022;</span>
                         <span>
-                          Once the $8 verification fee is processed, our team will manually provision your seat shortly.
+                          Click below to secure your spot; our team will manually provision your access to the private workspace shortly after verification.
                         </span>
                       </li>
                     </ul>
@@ -394,8 +394,8 @@ export default function StudentProfile() {
                       className="gap-1.5 border-cyber-purple/30 text-cyber-purple hover:bg-cyber-purple/10"
                       disabled
                     >
-                      <Lock className="h-3.5 w-3.5" />
-                      Unlock Pro for $8 (Verified Students Only)
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Claim My Elite AI Seat ($8/mo)
                     </Button>
                   </div>
                 </div>
