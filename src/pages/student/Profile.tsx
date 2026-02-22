@@ -15,10 +15,20 @@ import {
   Mail,
   Lock,
   Sparkles,
+  Loader2,
 } from "lucide-react";
+
+const STRIPE_PAYMENT_URL = "https://buy.stripe.com/YOUR_STRIPE_LINK_HERE";
 import { supabase } from "@/lib/supabase";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface StudentData {
   id: string;
@@ -53,6 +63,12 @@ export default function StudentProfile() {
   const [editName, setEditName] = useState("");
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
+
+  // Seat application modal state
+  const [seatModalOpen, setSeatModalOpen] = useState(false);
+  const [studyGoal, setStudyGoal] = useState("");
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [seatSubmitting, setSeatSubmitting] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -119,6 +135,15 @@ export default function StudentProfile() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSeatApplication = () => {
+    setSeatSubmitting(true);
+    setTimeout(() => {
+      const url = new URL(STRIPE_PAYMENT_URL);
+      if (student?.email) url.searchParams.set("prefilled_email", student.email);
+      window.location.href = url.toString();
+    }, 2000);
   };
 
   return (
@@ -392,7 +417,7 @@ export default function StudentProfile() {
                       size="sm"
                       variant="outline"
                       className="gap-1.5 border-cyber-purple/30 text-cyber-purple hover:bg-cyber-purple/10"
-                      disabled
+                      onClick={() => setSeatModalOpen(true)}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       Claim My Elite AI Seat ($8/mo)
@@ -404,6 +429,98 @@ export default function StudentProfile() {
           )}
         </div>
       </main>
+
+      {/* Seat Application Modal */}
+      <Dialog
+        open={seatModalOpen}
+        onOpenChange={(open) => {
+          if (!seatSubmitting) {
+            setSeatModalOpen(open);
+            if (!open) {
+              setStudyGoal("");
+              setTermsAgreed(false);
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md border-cyber-purple/30 bg-background">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-cyber-purple" />
+              Claim Your Elite AI Seat
+            </DialogTitle>
+            <DialogDescription>
+              Complete this short application to secure your spot
+            </DialogDescription>
+          </DialogHeader>
+
+          {seatSubmitting ? (
+            <div className="py-8 text-center space-y-4">
+              <div className="mx-auto h-12 w-12 rounded-full bg-cyber-purple/10 border border-cyber-purple/20 flex items-center justify-center">
+                <Loader2 className="h-6 w-6 text-cyber-purple animate-spin" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Processing Application...</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Redirecting you to secure payment
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Prefilled Email */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={student?.email || ""}
+                  readOnly
+                  className="w-full rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed"
+                />
+              </div>
+
+              {/* Study Goal */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  Briefly describe your current study goal and how this AI will help you
+                </label>
+                <textarea
+                  value={studyGoal}
+                  onChange={(e) => setStudyGoal(e.target.value)}
+                  placeholder="e.g., I'm preparing for the CompTIA Security+ exam and need help with practice questions and concept explanations..."
+                  rows={3}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-cyber-purple/50 focus:border-cyber-purple/50 resize-none"
+                />
+              </div>
+
+              {/* Terms Checkbox */}
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsAgreed}
+                  onChange={(e) => setTermsAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border bg-background text-cyber-purple focus:ring-cyber-purple/50 accent-[hsl(var(--cyber-purple))]"
+                />
+                <span className="text-sm text-muted-foreground">
+                  I agree to the <strong className="text-foreground">Professional Terms of Use</strong> for the Elite AI workspace.
+                </span>
+              </label>
+
+              {/* Submit */}
+              <Button
+                className="w-full gap-2 bg-cyber-purple hover:bg-cyber-purple/90 text-white"
+                disabled={!studyGoal.trim() || !termsAgreed}
+                onClick={handleSeatApplication}
+              >
+                <Lock className="h-4 w-4" />
+                Secure My Seat — $8/mo
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
