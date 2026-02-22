@@ -345,7 +345,7 @@ export default function StudentProfile() {
                   </div>
                 )}
 
-              {/* Exclusive AI Access — placeholder */}
+              {/* Exclusive AI Access */}
               <div className="card-cyber p-6 sm:p-8 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-cyber-purple/5 via-transparent to-primary/5" />
                 <div className="relative">
@@ -354,18 +354,39 @@ export default function StudentProfile() {
                     Exclusive AI Access
                   </h2>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg border border-border/50 bg-muted/20">
+                  <div className="p-4 rounded-lg border border-border/50 bg-muted/20 space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-cyber-purple/10 border border-cyber-purple/20 flex items-center justify-center">
+                      <div className="h-10 w-10 rounded-lg bg-cyber-purple/10 border border-cyber-purple/20 flex items-center justify-center flex-shrink-0">
                         <Lock className="h-5 w-5 text-cyber-purple" />
                       </div>
                       <div>
                         <p className="font-medium text-foreground">Claude Pro</p>
                         <p className="text-xs text-muted-foreground">
-                          AI-powered cybersecurity study assistant
+                          Enterprise-grade AI workspace for cybersecurity students
                         </p>
                       </div>
                     </div>
+
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex gap-2">
+                        <span className="text-cyber-purple mt-0.5">&#x2022;</span>
+                        <span>
+                          You are requesting one of our <strong className="text-foreground">20 exclusive Elite AI seats</strong> on our private Enterprise-grade workspace.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-cyber-purple mt-0.5">&#x2022;</span>
+                        <span>
+                          While a standard Team-level license is <strong className="text-foreground">$30+ USD/month</strong>, our members unlock this power for just <strong className="text-foreground">$8/month</strong>—a 75% discount secured specifically for this cohort.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-cyber-purple mt-0.5">&#x2022;</span>
+                        <span>
+                          Once the $8 verification fee is processed, our team will manually provision your seat shortly.
+                        </span>
+                      </li>
+                    </ul>
 
                     <Button
                       size="sm"
