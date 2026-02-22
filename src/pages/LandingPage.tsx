@@ -7,6 +7,7 @@ import {
   Globe,
   ClipboardList,
   UserPlus,
+  UserCircle,
   BookOpen,
   Award,
   ArrowRight,
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
 import { CertifiedCorner } from "@/components/landing/CertifiedCorner";
 import { LiveStats } from "@/components/landing/LiveStats";
+import { StudentPortalModal } from "@/components/landing/StudentPortalModal";
 import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
 import { supabase } from "@/lib/supabase";
@@ -37,6 +39,7 @@ export default function LandingPage() {
   const [countryData, setCountryData] = useState<CountryData[]>([]);
   const [stats, setStats] = useState({ students: 0, trainers: 0 });
   const [loading, setLoading] = useState(true);
+  const [portalOpen, setPortalOpen] = useState(false);
 
   // --- Find Your Trainer ---
   const [trainerSearchEmail, setTrainerSearchEmail] = useState("");
@@ -210,6 +213,16 @@ export default function LandingPage() {
                   Join our community
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto text-base px-8 py-6"
+                onClick={() => setPortalOpen(true)}
+              >
+                <UserCircle className="mr-2 h-5 w-5" />
+                Manage My Profile
               </Button>
 
               <Button
@@ -549,6 +562,8 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      <StudentPortalModal open={portalOpen} onOpenChange={setPortalOpen} />
     </div>
   );
 }

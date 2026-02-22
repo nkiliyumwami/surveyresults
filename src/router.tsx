@@ -13,6 +13,9 @@ const TrainerHome = lazy(() => import("./pages/trainer/Home"));
 const TrainerProfile = lazy(() => import("./pages/trainer/Profile"));
 const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
 
+// Student pages
+const StudentProfile = lazy(() => import("./pages/student/Profile"));
+
 // Admin pages
 const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
 
@@ -42,6 +45,9 @@ export const router = createBrowserRouter([
 
   // Student dashboard (moved from root)
   { path: "/dashboard/students", element: withSuspense(<StudentDashboard />) },
+
+  // Student profile
+  { path: "/profile/:id", element: withSuspense(<StudentProfile />) },
 
   // Trainer routes
   { path: "/trainer/login", element: withSuspense(<TrainerLogin />) },
