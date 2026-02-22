@@ -60,7 +60,7 @@ export default function LandingPage() {
     try {
       const { data: student, error: studentErr } = await supabase
         .from("students")
-        .select("id, full_name")
+        .select("id, full_name, display_name")
         .eq("email", emailTrimmed)
         .maybeSingle();
 
@@ -91,7 +91,7 @@ export default function LandingPage() {
       }
 
       setTrainerResult({
-        studentName: student.full_name || emailTrimmed,
+        studentName: student.display_name || student.full_name || emailTrimmed,
         trainerName: trainer.full_name || "Your Trainer",
         trainerEmail: trainer.email || "—",
       });

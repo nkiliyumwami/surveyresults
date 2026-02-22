@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award, Search, Plus, X } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award, Search, Plus, X, BadgeCheck, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,7 @@ interface StudentRow {
   id: string;
   email: string | null;
   full_name: string | null;
+  display_name: string | null;
   country: string | null;
   journey_level: string | null;
   target_role: string | null;
@@ -93,6 +94,10 @@ function getScoreBg(score: number): string {
   if (score >= 60) return "bg-yellow-500/10 border-yellow-500/30";
   if (score >= 40) return "bg-orange-500/10 border-orange-500/30";
   return "bg-red-500/10 border-red-500/30";
+}
+
+function getDisplayName(student: { display_name: string | null; full_name: string | null }): string {
+  return student.display_name || student.full_name || "Unknown";
 }
 
 // ============================================================
@@ -185,7 +190,13 @@ function StudentCard({ student, trainers, trainerCounts, onAssigned }: StudentCa
               onClick={() => setShowDetails(!showDetails)}
               className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-2 mb-1"
             >
-              <span className="truncate">{student.full_name || "Unknown"}</span>
+              <span className="truncate">{getDisplayName(student)}</span>
+              {student.display_name && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
+                  <BadgeCheck className="h-3 w-3 mr-0.5" />
+                  Verified
+                </Badge>
+              )}
               <Info className="h-3 w-3 text-muted-foreground flex-shrink-0" />
             </button>
 
@@ -600,6 +611,71 @@ function CertFieldsEditor({
   );
 }
 
+function NameOverrideEditor({
+  student,
+  onUpdated,
+}: {
+  student: StudentRow;
+  onUpdated: () => void;
+}) {
+  const [name, setName] = useState(student.display_name || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({ display_name: name.trim() || null })
+        .eq("id", student.id);
+
+      if (error) throw error;
+
+      toast({ title: name.trim() ? "Display name saved" : "Display name cleared" });
+      onUpdated();
+    } catch (err: any) {
+      toast({
+        title: "Save failed",
+        description: err.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="md:col-span-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground text-sm">Correct Full Name:</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          placeholder={student.full_name || "Enter corrected name…"}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={saving}
+          className="gap-1 whitespace-nowrap"
+        >
+          {saving ? (
+            <RefreshCw className="h-3 w-3 animate-spin" />
+          ) : (
+            <Check className="h-3 w-3" />
+          )}
+          Save Name
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudentCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [featureBusy, setFeatureBusy] = useState(false);
@@ -639,14 +715,20 @@ function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudent
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             {/* Line 1: Full Name (Bold, Primary) + Status Badge */}
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <button
                 onClick={() => setShowDetails(!showDetails)}
                 className="font-bold text-foreground hover:text-primary transition-colors flex items-center gap-2"
               >
-                <span className="truncate">{student.full_name || "Unknown"}</span>
+                <span className="truncate">{getDisplayName(student)}</span>
                 <Info className="h-3 w-3 text-muted-foreground flex-shrink-0" />
               </button>
+              {student.display_name && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
+                  <BadgeCheck className="h-3 w-3 mr-0.5" />
+                  Verified
+                </Badge>
+              )}
               <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/30">
                 {assignment.status}
               </Badge>
@@ -735,6 +817,9 @@ function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudent
                 <p className="text-muted-foreground mb-1">Certifications:</p>
                 <p className="text-foreground">{student.certifications || "None listed"}</p>
               </div>
+              {/* Name Override */}
+              <NameOverrideEditor student={student} onUpdated={onUpdated} />
+
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -976,13 +1061,13 @@ export default function Assignments() {
       const trainerB = b.assignment.trainer?.full_name || "";
       const cmp = trainerA.localeCompare(trainerB);
       if (cmp !== 0) return cmp;
-      return (a.full_name || "").localeCompare(b.full_name || "");
+      return getDisplayName(a).localeCompare(getDisplayName(b));
     });
 
     const header = ["Trainer Name", "Student Name", "Student Email", "Track", "Country"];
     const rows = sorted.map((s) => [
       s.assignment.trainer?.full_name || "",
-      s.full_name || "",
+      getDisplayName(s),
       s.email || "",
       s.target_role || "",
       s.country || "",
@@ -1296,6 +1381,7 @@ export default function Assignments() {
                       if (!assignedSearch.trim()) return true;
                       const q = assignedSearch.toLowerCase();
                       return (
+                        (s.display_name || "").toLowerCase().includes(q) ||
                         (s.full_name || "").toLowerCase().includes(q) ||
                         (s.email || "").toLowerCase().includes(q)
                       );

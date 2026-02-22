@@ -11,6 +11,7 @@ interface CertEntry {
 interface CertifiedStudent {
   id: string;
   full_name: string | null;
+  display_name: string | null;
   country: string | null;
   certification_name: string | null;
   certification_date: string | null;
@@ -39,7 +40,7 @@ export function CertifiedCorner() {
       const { data } = await supabase
         .from("students")
         .select(
-          "id, full_name, country, certification_name, certification_date, credly_url, profile_image_url, student_certifications"
+          "id, full_name, display_name, country, certification_name, certification_date, credly_url, profile_image_url, student_certifications"
         )
         .eq("featured_in_certified_corner", true)
         .order("certification_date", { ascending: false });
@@ -94,7 +95,7 @@ export function CertifiedCorner() {
                   {s.profile_image_url ? (
                     <img
                       src={s.profile_image_url}
-                      alt={s.full_name || "Student"}
+                      alt={s.display_name || s.full_name || "Student"}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -104,7 +105,7 @@ export function CertifiedCorner() {
 
                 {/* Name */}
                 <h3 className="font-semibold text-foreground text-lg">
-                  {s.full_name || "Anonymous"}
+                  {s.display_name || s.full_name || "Anonymous"}
                 </h3>
 
                 {/* Country */}
