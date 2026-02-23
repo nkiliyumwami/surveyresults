@@ -56,6 +56,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
   "united stattes": "United States",
   "texas dallas": "United States",
   "nashvilletenesse": "United States",
+  "nashvilletennesse": "United States",
   "nashvilletennessee": "United States",
   "nashivilletenesse": "United States",
   "nashivilletennessee": "United States",
