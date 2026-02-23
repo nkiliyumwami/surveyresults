@@ -11,6 +11,13 @@ import { supabase } from "@/lib/supabase";
 import { parseAvailability, type DayTimeSlot } from "@/data/locationData";
 
 // ============================================================
+// Catch-all Trainer (The Peter Rule)
+// ============================================================
+// When all regular trainers are at capacity (10), remaining
+// students are assigned to this catch-all trainer.
+const CATCHALL_TRAINER_EMAIL = "peter.niyodusenga@microrisk.io";
+
+// ============================================================
 // Types
 // ============================================================
 
@@ -27,6 +34,7 @@ export interface StudentForMatching {
 export interface TrainerForMatching {
   id: string;
   full_name?: string | null;
+  email?: string | null;
   expertise?: string[] | null;          // e.g., ["SOC / Incident Response", "Penetration Testing"]
   specializations?: string[] | null;    // Additional specializations
   availability?: string[] | null;       // e.g., ["10 hours/week", "Monday 09:00–17:00"]
@@ -322,7 +330,7 @@ async function getActiveAssignmentCount(trainerId: string): Promise<number> {
 async function calculateCapacityScore(
   trainer: TrainerForMatching
 ): Promise<{ score: number; currentAssignments: number; maxCapacity: number }> {
-  const maxCapacity = trainer.max_capacity || trainer.max_students || 25;
+  const maxCapacity = trainer.max_capacity || trainer.max_students || 10;
   const currentAssignments = await getActiveAssignmentCount(trainer.id);
 
   // If at or over capacity, very low score
@@ -436,6 +444,7 @@ export async function fetchActiveTrainers(): Promise<TrainerForMatching[]> {
     .select(`
       id,
       full_name,
+      email,
       expertise,
       specializations,
       availability,
@@ -546,10 +555,18 @@ export async function bulkAutoAssign(
   // Get current assignment counts for all trainers
   const trainerCounts = await getTrainerAssignmentCounts();
 
+  // Identify the catch-all trainer (Peter) — separate from regular pool
+  const catchallTrainer = activeTrainers.find(
+    (t) => t.email?.toLowerCase() === CATCHALL_TRAINER_EMAIL
+  );
+  const regularTrainers = activeTrainers.filter(
+    (t) => t.email?.toLowerCase() !== CATCHALL_TRAINER_EMAIL
+  );
+
   // Create a working copy of trainer capacities
   const trainerCapacities = new Map<string, { current: number; max: number }>();
   for (const trainer of activeTrainers) {
-    const maxCapacity = trainer.max_capacity || trainer.max_students || 25;
+    const maxCapacity = trainer.max_capacity || trainer.max_students || 10;
     const currentCount = trainerCounts.get(trainer.id) || 0;
     trainerCapacities.set(trainer.id, { current: currentCount, max: maxCapacity });
   }
@@ -575,40 +592,45 @@ export async function bulkAutoAssign(
       phase: "matching",
     });
 
-    // Calculate scores for all trainers with available capacity
-    const trainersWithCapacity = activeTrainers.filter((t) => {
+    // First, try to match with regular (non-Peter) trainers that have capacity
+    const regularWithCapacity = regularTrainers.filter((t) => {
       const capacity = trainerCapacities.get(t.id);
       return capacity && capacity.current < capacity.max;
     });
 
-    if (trainersWithCapacity.length === 0) {
-      result.noMatchFound++;
-      result.errors.push(`No available trainers for ${student.full_name || student.id}`);
-      continue;
-    }
-
-    // Calculate scores for available trainers
-    // Note: We need to manually calculate without the async capacity check
-    // since we're tracking capacity in memory
     let bestMatch: { trainerId: string; trainerName: string; score: number } | null = null;
 
-    for (const trainer of trainersWithCapacity) {
-      const { score: availabilityScore } = calculateAvailabilityScore(student, trainer);
-      const { score: skillsScore, matchedSkills } = calculateSkillsScore(student, trainer);
+    if (regularWithCapacity.length > 0) {
+      // Calculate scores for available regular trainers
+      for (const trainer of regularWithCapacity) {
+        const { score: availabilityScore } = calculateAvailabilityScore(student, trainer);
+        const { score: skillsScore } = calculateSkillsScore(student, trainer);
 
-      // Calculate capacity score based on our in-memory tracking
-      const capacity = trainerCapacities.get(trainer.id)!;
-      const availableSlots = capacity.max - capacity.current;
-      const capacityRatio = availableSlots / capacity.max;
-      const capacityScore = WEIGHTS.CAPACITY * capacityRatio;
+        // Calculate capacity score based on our in-memory tracking
+        const capacity = trainerCapacities.get(trainer.id)!;
+        const availableSlots = capacity.max - capacity.current;
+        const capacityRatio = availableSlots / capacity.max;
+        const capacityScore = WEIGHTS.CAPACITY * capacityRatio;
 
-      const totalScore = Math.round(availabilityScore + skillsScore + capacityScore);
+        const totalScore = Math.round(availabilityScore + skillsScore + capacityScore);
 
-      if (!bestMatch || totalScore > bestMatch.score) {
+        if (!bestMatch || totalScore > bestMatch.score) {
+          bestMatch = {
+            trainerId: trainer.id,
+            trainerName: trainer.full_name || "Unknown",
+            score: totalScore,
+          };
+        }
+      }
+    } else if (catchallTrainer) {
+      // THE PETER RULE: All regular trainers are at capacity.
+      // Fall back to the catch-all trainer (Peter).
+      const catchallCapacity = trainerCapacities.get(catchallTrainer.id);
+      if (catchallCapacity && catchallCapacity.current < catchallCapacity.max) {
         bestMatch = {
-          trainerId: trainer.id,
-          trainerName: trainer.full_name || "Unknown",
-          score: totalScore,
+          trainerId: catchallTrainer.id,
+          trainerName: catchallTrainer.full_name || "Catch-all Trainer",
+          score: 50, // Default score for catch-all assignments
         };
       }
     }
@@ -628,6 +650,7 @@ export async function bulkAutoAssign(
       });
     } else {
       result.noMatchFound++;
+      result.errors.push(`No available trainers for ${student.full_name || student.id}`);
     }
   }
 
