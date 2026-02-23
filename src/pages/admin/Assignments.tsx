@@ -1369,7 +1369,7 @@ export default function Assignments() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <input
                       type="text"
-                      placeholder="Search by student name, email, or trainer name…"
+                      placeholder="Search by name or email…"
                       value={assignedSearch}
                       onChange={(e) => setAssignedSearch(e.target.value)}
                       className="w-full rounded-md border border-border bg-background pl-10 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1383,8 +1383,7 @@ export default function Assignments() {
                       return (
                         (s.display_name || "").toLowerCase().includes(q) ||
                         (s.full_name || "").toLowerCase().includes(q) ||
-                        (s.email || "").toLowerCase().includes(q) ||
-                        (s.assignment.trainer?.full_name || "").toLowerCase().includes(q)
+                        (s.email || "").toLowerCase().includes(q)
                       );
                     })
                     .map(({ assignment, ...student }) => (

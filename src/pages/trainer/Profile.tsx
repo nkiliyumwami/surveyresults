@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, MapPin, Clock } from "lucide-react";
+import { Plus, Trash2, MapPin, Clock, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,11 @@ export default function TrainerProfile() {
   // Arrays
   const [expertise, setExpertise] = useState<string[]>([]);
   const [certificationsText, setCertificationsText] = useState("");
+
+  // Assigned students
+  const [assignedStudents, setAssignedStudents] = useState<
+    { id: string; full_name: string | null; email: string | null; assigned_at: string }[]
+  >([]);
 
   // Availability - structured
   const [weeklyCapacity, setWeeklyCapacity] = useState("");
@@ -183,6 +188,9 @@ export default function TrainerProfile() {
       } else {
         hydrateForm(profile);
       }
+
+      // Load assigned students for this trainer
+      await loadAssignedStudents(user.id);
     } catch (e) {
       console.error(e);
       setStatus(e instanceof Error ? e.message : "Failed to load profile.");
@@ -205,6 +213,30 @@ export default function TrainerProfile() {
     const { weeklyCapacity: wc, slots } = parseAvailability(p.availability ?? []);
     setWeeklyCapacity(wc);
     setAvailabilitySlots(slots);
+  };
+
+  const loadAssignedStudents = async (trainerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("assignments")
+        .select("created_at, student:students(id, full_name, email)")
+        .eq("trainer_id", trainerId)
+        .eq("status", "active")
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      setAssignedStudents(
+        (data || []).map((row: any) => ({
+          id: row.student?.id ?? "",
+          full_name: row.student?.full_name ?? null,
+          email: row.student?.email ?? null,
+          assigned_at: row.created_at,
+        }))
+      );
+    } catch (e) {
+      console.error("Failed to load assigned students:", e);
+    }
   };
 
   const saveProfile = async () => {
@@ -632,6 +664,62 @@ export default function TrainerProfile() {
                 </div>
               )}
             </div>
+          </motion.section>
+
+          {/* Assigned Students */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.35 }}
+            className="card-cyber p-4 sm:p-6"
+          >
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Assigned Students
+              <span className="text-xs font-normal text-muted-foreground">
+                ({assignedStudents.length})
+              </span>
+            </h2>
+
+            {assignedStudents.length === 0 ? (
+              <p className="mt-3 text-xs text-muted-foreground italic">
+                No students assigned to you yet.
+              </p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/50 text-left text-xs text-muted-foreground">
+                      <th className="pb-2 pr-4 font-medium">#</th>
+                      <th className="pb-2 pr-4 font-medium">Name</th>
+                      <th className="pb-2 pr-4 font-medium">Email</th>
+                      <th className="pb-2 font-medium">Assigned</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assignedStudents.map((s, i) => (
+                      <tr
+                        key={s.id}
+                        className="border-b border-border/30 last:border-0"
+                      >
+                        <td className="py-2 pr-4 text-xs text-muted-foreground">
+                          {i + 1}
+                        </td>
+                        <td className="py-2 pr-4 text-foreground">
+                          {s.full_name || "Unknown"}
+                        </td>
+                        <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">
+                          {s.email || "—"}
+                        </td>
+                        <td className="py-2 text-xs text-muted-foreground">
+                          {new Date(s.assigned_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </motion.section>
         </div>
 

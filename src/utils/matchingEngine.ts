@@ -552,27 +552,19 @@ export async function bulkAutoAssign(
     return result;
   }
 
-  // Get current assignment counts for all trainers
-  const trainerCounts = await getTrainerAssignmentCounts();
-
-  // Identify the catch-all trainer (Peter) — separate from regular pool
-  const catchallTrainer = activeTrainers.find(
+  // PRIMARY LANDING ZONE: All new students go directly to Peter.
+  // Other trainers receive students via manual redistribution.
+  const peterTrainer = activeTrainers.find(
     (t) => t.email?.toLowerCase() === CATCHALL_TRAINER_EMAIL
   );
-  const regularTrainers = activeTrainers.filter(
-    (t) => t.email?.toLowerCase() !== CATCHALL_TRAINER_EMAIL
-  );
 
-  // Create a working copy of trainer capacities
-  const trainerCapacities = new Map<string, { current: number; max: number }>();
-  for (const trainer of activeTrainers) {
-    const maxCapacity = trainer.max_capacity || trainer.max_students || 10;
-    const currentCount = trainerCounts.get(trainer.id) || 0;
-    trainerCapacities.set(trainer.id, { current: currentCount, max: maxCapacity });
+  if (!peterTrainer) {
+    result.errors.push(
+      `Default trainer (${CATCHALL_TRAINER_EMAIL}) not found among active trainers`
+    );
+    return result;
   }
 
-  // Calculate match scores for all student-trainer pairs
-  // We need to do this in a way that considers capacity dynamically
   const assignmentsToCreate: Array<{
     student_id: string;
     trainer_id: string;
@@ -592,66 +584,14 @@ export async function bulkAutoAssign(
       phase: "matching",
     });
 
-    // First, try to match with regular (non-Peter) trainers that have capacity
-    const regularWithCapacity = regularTrainers.filter((t) => {
-      const capacity = trainerCapacities.get(t.id);
-      return capacity && capacity.current < capacity.max;
+    assignmentsToCreate.push({
+      student_id: student.id,
+      trainer_id: peterTrainer.id,
+      status: "active",
+      studentName: student.full_name || student.id,
+      trainerName: peterTrainer.full_name || "Default Trainer",
+      score: 100,
     });
-
-    let bestMatch: { trainerId: string; trainerName: string; score: number } | null = null;
-
-    if (regularWithCapacity.length > 0) {
-      // Calculate scores for available regular trainers
-      for (const trainer of regularWithCapacity) {
-        const { score: availabilityScore } = calculateAvailabilityScore(student, trainer);
-        const { score: skillsScore } = calculateSkillsScore(student, trainer);
-
-        // Calculate capacity score based on our in-memory tracking
-        const capacity = trainerCapacities.get(trainer.id)!;
-        const availableSlots = capacity.max - capacity.current;
-        const capacityRatio = availableSlots / capacity.max;
-        const capacityScore = WEIGHTS.CAPACITY * capacityRatio;
-
-        const totalScore = Math.round(availabilityScore + skillsScore + capacityScore);
-
-        if (!bestMatch || totalScore > bestMatch.score) {
-          bestMatch = {
-            trainerId: trainer.id,
-            trainerName: trainer.full_name || "Unknown",
-            score: totalScore,
-          };
-        }
-      }
-    } else if (catchallTrainer) {
-      // THE PETER RULE: All regular trainers are at capacity.
-      // Fall back to the catch-all trainer (Peter).
-      const catchallCapacity = trainerCapacities.get(catchallTrainer.id);
-      if (catchallCapacity && catchallCapacity.current < catchallCapacity.max) {
-        bestMatch = {
-          trainerId: catchallTrainer.id,
-          trainerName: catchallTrainer.full_name || "Catch-all Trainer",
-          score: 50, // Default score for catch-all assignments
-        };
-      }
-    }
-
-    if (bestMatch) {
-      // Update our in-memory capacity tracking
-      const capacity = trainerCapacities.get(bestMatch.trainerId)!;
-      capacity.current++;
-
-      assignmentsToCreate.push({
-        student_id: student.id,
-        trainer_id: bestMatch.trainerId,
-        status: "active",
-        studentName: student.full_name || student.id,
-        trainerName: bestMatch.trainerName,
-        score: bestMatch.score,
-      });
-    } else {
-      result.noMatchFound++;
-      result.errors.push(`No available trainers for ${student.full_name || student.id}`);
-    }
   }
 
   // Batch insert all assignments
