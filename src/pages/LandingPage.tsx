@@ -61,42 +61,28 @@ export default function LandingPage() {
     setTrainerSearchError(null);
 
     try {
-      const { data: student, error: studentErr } = await supabase
-        .from("students")
-        .select("id, full_name, display_name")
-        .eq("email", emailTrimmed)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_trainer_by_student_email", {
+        email_input: emailTrimmed,
+      });
 
-      if (studentErr) throw studentErr;
-      if (!student) {
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+
+      if (!row || row.status === "no_student") {
         setTrainerSearchError("No student found with that email. Please check and try again.");
         return;
       }
 
-      const { data: assignment, error: assignErr } = await supabase
-        .from("assignments")
-        .select("trainer:trainer_profiles(full_name, email, is_active)")
-        .eq("student_id", student.id)
-        .eq("status", "active")
-        .maybeSingle();
-
-      if (assignErr) throw assignErr;
-
-      const trainer = assignment?.trainer as {
-        full_name: string | null;
-        email: string | null;
-        is_active: boolean;
-      } | null;
-
-      if (!assignment || !trainer || !trainer.is_active) {
+      if (row.status === "no_assignment") {
         setTrainerSearchError("No active trainer assignment found yet. Please check back soon!");
         return;
       }
 
       setTrainerResult({
-        studentName: student.display_name || student.full_name || emailTrimmed,
-        trainerName: trainer.full_name || "Your Trainer",
-        trainerEmail: trainer.email || "—",
+        studentName: row.student_name || emailTrimmed,
+        trainerName: row.trainer_name || "Your Trainer",
+        trainerEmail: row.trainer_email || "—",
       });
     } catch (err: any) {
       console.error("Trainer search error:", err);
