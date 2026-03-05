@@ -19,6 +19,11 @@ const StudentProfile = lazy(() => import("./pages/student/Profile"));
 // Admin pages
 const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
 
+// Portal pages
+const PortalLogin = lazy(() => import("./pages/portal/PortalLogin"));
+const PortalDashboard = lazy(() => import("./pages/portal/PortalDashboard"));
+const PortalAdmin = lazy(() => import("./pages/portal/PortalAdmin"));
+
 // Dev/test pages (hidden routes)
 const TestAssignments = lazy(() => import("./pages/dev/TestAssignments"));
 const TestMatchingEngine = lazy(() => import("./pages/dev/TestMatchingEngine"));
@@ -100,6 +105,11 @@ export const router = createBrowserRouter([
       <AdminRoute>{withSuspense(<SyncStudents />)}</AdminRoute>
     ),
   },
+
+  // Portal routes
+  { path: "/portal/login", element: withSuspense(<PortalLogin />) },
+  { path: "/portal", element: withSuspense(<PortalDashboard />) },
+  { path: "/portal/admin", element: withSuspense(<PortalAdmin />) },
 
   { path: "*", element: <NotFound /> },
 ]);

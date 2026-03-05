@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle } from "lucide-react";
+import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle, Terminal } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { StudentPortalModal } from "@/components/landing/StudentPortalModal";
 
 export function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [portalOpen, setPortalOpen] = useState(false);
   const location = useLocation();
 
   // Check auth state
@@ -51,6 +49,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/dashboard/students", label: "Student Dashboard", icon: LayoutDashboard },
+    { href: "/portal", label: "OpenClaw", icon: Terminal },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -95,14 +94,11 @@ export function Navbar() {
               </Link>
             ))}
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPortalOpen(true)}
-              className="flex items-center gap-1.5"
-            >
-              <UserCircle className="h-4 w-4" />
-              Student Portal
+            <Button asChild size="sm" variant="outline">
+              <Link to="/portal/login" className="flex items-center gap-1.5">
+                <UserCircle className="h-4 w-4" />
+                Student Portal
+              </Link>
             </Button>
 
             {isLoggedIn ? (
@@ -164,13 +160,11 @@ export function Navbar() {
               ))}
 
               <div className="pt-2 border-t border-border/50 space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-center gap-1.5"
-                  onClick={() => setPortalOpen(true)}
-                >
-                  <UserCircle className="h-4 w-4" />
-                  Student Portal
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
+                    <UserCircle className="h-4 w-4" />
+                    Student Portal
+                  </Link>
                 </Button>
 
                 {isLoggedIn ? (
@@ -191,7 +185,6 @@ export function Navbar() {
         )}
       </AnimatePresence>
 
-      <StudentPortalModal open={portalOpen} onOpenChange={setPortalOpen} />
     </nav>
   );
 }
