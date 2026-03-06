@@ -50,6 +50,13 @@ export default function PortalDashboard() {
     }
   }, [loading, navigate]);
 
+  // Redirect admin to admin console
+  useEffect(() => {
+    if (!loading && student && student.role === "admin") {
+      navigate("/portal/admin", { replace: true });
+    }
+  }, [loading, student, navigate]);
+
   // Countdown timer
   useEffect(() => {
     if (!student) return;
