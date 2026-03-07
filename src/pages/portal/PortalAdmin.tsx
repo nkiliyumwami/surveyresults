@@ -60,6 +60,7 @@ import {
   adminCreateStudent,
   adminExtendStudent,
   adminRevokeStudent,
+  adminDeleteStudent,
   adminNotifyStudent,
   adminRestartContainer,
   adminStopContainer,
@@ -102,6 +103,7 @@ export default function PortalAdmin() {
 
   // Revoke confirm dialog
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   // Action loading tracker
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -190,6 +192,15 @@ export default function PortalAdmin() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await handleAction(
+      () => adminDeleteStudent(deleteTarget),
+      `${deleteTarget} deleted`,
+      `delete-${deleteTarget}`
+    );
+    setDeleteTarget(null);
+  };
   const handleRevoke = async () => {
     if (!revokeTarget) return;
     await handleAction(
@@ -524,15 +535,15 @@ export default function PortalAdmin() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive hover:text-destructive"
-                                  disabled={isRevoked}
+                                  disabled={false}
                                   onClick={() =>
-                                    setRevokeTarget(s.username)
+                                    setDeleteTarget(s.username)
                                   }
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Revoke student</TooltipContent>
+                              <TooltipContent>Delete student</TooltipContent>
                             </Tooltip>
                           </div>
                         </TableCell>
@@ -683,6 +694,32 @@ export default function PortalAdmin() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Revoke
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Delete confirm dialog */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Student</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{" "}
+              <span className="font-mono font-semibold">{deleteTarget}</span>'s
+              account, remove their container, and erase all data. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

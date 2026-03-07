@@ -145,6 +145,14 @@ export async function adminRevokeStudent(
   });
 }
 
+export async function adminDeleteStudent(
+  username: string
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>("/admin/delete", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
 export async function adminNotifyStudent(
   username: string
 ): Promise<{ ok: boolean }> {
