@@ -57,16 +57,28 @@ export function CyberMentorWidget() {
               return JSON.stringify({ found: false, reason: "invalid_name" });
             }
 
-            // Search display_name first, then full_name (case-insensitive)
-            const { data, error } = await supabase
+            // Exact match first, fall back to partial if nothing found
+            let { data, error } = await supabase
               .from("students")
               .select(
                 "full_name, display_name, journey_level, target_role, weekly_hours, certifications"
               )
               .or(
-                `display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`
+                `display_name.ilike.${trimmed},full_name.ilike.${trimmed}`
               )
               .limit(5);
+
+            if (!error && (!data || data.length === 0)) {
+              ({ data, error } = await supabase
+                .from("students")
+                .select(
+                  "full_name, display_name, journey_level, target_role, weekly_hours, certifications"
+                )
+                .or(
+                  `display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`
+                )
+                .limit(5));
+            }
 
             if (error || !data || data.length === 0) {
               return JSON.stringify({ found: false });
