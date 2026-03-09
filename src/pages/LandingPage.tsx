@@ -21,6 +21,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { CertifiedCorner } from "@/components/landing/CertifiedCorner";
 import { LiveStats } from "@/components/landing/LiveStats";
 import { StudentPortalModal } from "@/components/landing/StudentPortalModal";
+import { CyberMentorWidget } from "@/components/CyberMentorWidget";
 import { WorldMap } from "@/components/dashboard/WorldMap";
 import { normalizeCountry } from "@/data/surveyData";
 import { supabase } from "@/lib/supabase";
@@ -550,6 +551,7 @@ export default function LandingPage() {
       </footer>
 
       <StudentPortalModal open={portalOpen} onOpenChange={setPortalOpen} />
+      <CyberMentorWidget />
     </div>
   );
 }
