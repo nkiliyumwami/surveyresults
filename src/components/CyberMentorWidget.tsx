@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const AGENT_ID = "agent_5301kk9vxzt0fpp92jxa49cakhdg";
 
@@ -22,12 +23,11 @@ export function CyberMentorWidget() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "agent",
-      text: "👋 Hey, I'm CyberMentor. Start a session to ask me anything about cybersecurity.",
+      text: "👋 Hey, I'm CyberMentor. Start a session and I'll pull up your personalized learning profile.",
     },
   ]);
   const conversationRef = useRef<any>(null);
   const logRef = useRef<HTMLDivElement>(null);
-
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -45,11 +45,61 @@ export function CyberMentorWidget() {
     setState("connecting");
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
+
       conversationRef.current = await ElevenLabsClient.Conversation.startSession({
         agentId: AGENT_ID,
+
+        clientTools: {
+          // ElevenLabs calls this when it has a name to look up
+          lookup_student: async ({ name }: { name: string }) => {
+            const trimmed = name?.trim();
+            if (!trimmed || trimmed.length < 2) {
+              return JSON.stringify({ found: false, reason: "invalid_name" });
+            }
+
+            // Search display_name first, then full_name (case-insensitive)
+            const { data, error } = await supabase
+              .from("students")
+              .select(
+                "full_name, display_name, journey_level, target_role, weekly_hours, certifications"
+              )
+              .or(
+                `display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`
+              )
+              .limit(5);
+
+            if (error || !data || data.length === 0) {
+              return JSON.stringify({ found: false });
+            }
+
+            if (data.length > 1) {
+              // Multiple matches — ask agent to be more specific
+              const names = data
+                .map((s) => s.display_name || s.full_name)
+                .filter(Boolean)
+                .join(", ");
+              return JSON.stringify({
+                found: false,
+                reason: "multiple_matches",
+                matches: names,
+              });
+            }
+
+            const s = data[0];
+            return JSON.stringify({
+              found: true,
+              name: s.display_name || s.full_name || trimmed,
+              journey_level: s.journey_level || "Not specified",
+              target_role: s.target_role || "Not specified",
+              weekly_hours: s.weekly_hours || "Not specified",
+              certifications: s.certifications || "Not sure yet",
+            });
+          },
+        },
+
         onConnect: () => {
           setState("listening");
-          addMsg("Session started. Ask me anything about cybersecurity!", "agent");
+          addMsg("Session started. CyberMentor is ready.", "agent");
         },
         onDisconnect: () => {
           conversationRef.current = null;
