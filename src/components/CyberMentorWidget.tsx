@@ -11,7 +11,7 @@ interface Message {
 
 declare global {
   interface Window {
-    ElevenLabsClient: any;
+    client: any;
   }
 }
 
@@ -37,7 +37,7 @@ export function CyberMentorWidget() {
     setMessages((prev) => [...prev, { role, text }]);
 
   const startSession = async () => {
-    const ElevenLabsClient = window.ElevenLabsClient;
+    const ElevenLabsClient = window.client;
     if (!ElevenLabsClient) {
       addMsg("SDK not ready yet. Please wait a moment and try again.", "agent");
       return;
