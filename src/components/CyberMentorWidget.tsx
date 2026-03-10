@@ -34,6 +34,7 @@ export function CyberMentorWidget() {
   ]);
   const conversationRef = useRef<any>(null);
   const logRef = useRef<HTMLDivElement>(null);
+  const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -55,7 +56,7 @@ export function CyberMentorWidget() {
     setChecking(true);
     const { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active")
+      .select("full_name, display_name, is_profile_active, daily_sessions_used, last_session_date, access_token")
       .eq("access_token", token)
       .maybeSingle();
 
@@ -86,14 +87,14 @@ export function CyberMentorWidget() {
 
     let { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active, access_token")
+      .select("full_name, display_name, is_profile_active, access_token, daily_sessions_used, last_session_date")
       .or(`display_name.ilike.${trimmed},full_name.ilike.${trimmed}`)
       .limit(5);
 
     if (!error && (!data || data.length === 0)) {
       ({ data, error } = await supabase
         .from("students")
-        .select("full_name, display_name, is_profile_active, access_token")
+        .select("full_name, display_name, is_profile_active, access_token, daily_sessions_used, last_session_date")
         .or(`display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
         .limit(5));
     }
@@ -138,7 +139,7 @@ export function CyberMentorWidget() {
 
     const { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active, access_token")
+      .select("full_name, display_name, is_profile_active, access_token, daily_sessions_used, last_session_date")
       .eq("email", trimmed)
       .maybeSingle();
 
@@ -172,7 +173,48 @@ export function CyberMentorWidget() {
     setTimeout(() => startSessionWithName(name), 800);
   };
 
+  const DAILY_LIMIT = 1;
+
+  const checkQuota = async (name: string): Promise<boolean> => {
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const { data, error } = await supabase
+      .from("students")
+      .select("daily_sessions_used, last_session_date")
+      .or(`display_name.ilike.${name},full_name.ilike.${name}`)
+      .maybeSingle();
+
+    if (error || !data) return true; // allow if we can't check
+
+    const isToday = data.last_session_date === today;
+    const used = isToday ? (data.daily_sessions_used || 0) : 0;
+
+    if (used >= DAILY_LIMIT) {
+      addMsg(
+        `You've used your ${DAILY_LIMIT} sessions for today. Come back tomorrow — CyberMentor will be ready for you! 🔐`,
+        "agent"
+      );
+      setGateStatus("pending");
+      return false;
+    }
+
+    // Increment counter
+    await supabase
+      .from("students")
+      .update({
+        daily_sessions_used: used + 1,
+        last_session_date: today,
+      })
+      .or(`display_name.ilike.${name},full_name.ilike.${name}`);
+
+    return true;
+  };
+
   const startSessionWithName = async (name: string) => {
+    // Check daily quota before starting any ElevenLabs session
+    const allowed = await checkQuota(name);
+    if (!allowed) return;
+
     const ElevenLabsClient = window.client;
     if (!ElevenLabsClient) {
       addMsg("SDK not ready yet. Please wait a moment and try again.", "agent");
@@ -238,8 +280,17 @@ export function CyberMentorWidget() {
         onConnect: () => {
           setState("listening");
           addMsg("Session started. CyberMentor is ready.", "agent");
+          // Auto-end session after 3 minutes to protect credits
+          sessionTimerRef.current = setTimeout(async () => {
+            addMsg("⏱ Your 3-minute session has ended. Come back tomorrow for your next session!", "agent");
+            await endSession();
+          }, 3 * 60 * 1000);
         },
         onDisconnect: () => {
+          if (sessionTimerRef.current) {
+            clearTimeout(sessionTimerRef.current);
+            sessionTimerRef.current = null;
+          }
           conversationRef.current = null;
           setState("idle");
           addMsg("Session ended.", "agent");
@@ -266,6 +317,10 @@ export function CyberMentorWidget() {
   const startSession = async () => startSessionWithName(verifiedName);
 
   const endSession = async () => {
+    if (sessionTimerRef.current) {
+      clearTimeout(sessionTimerRef.current);
+      sessionTimerRef.current = null;
+    }
     if (conversationRef.current) {
       await conversationRef.current.endSession();
       conversationRef.current = null;
