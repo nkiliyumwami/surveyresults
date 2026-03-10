@@ -39,26 +39,61 @@ export function CyberMentorWidget() {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [messages]);
 
+  // On mount — check for token in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      validateToken(token);
+    }
+  }, []);
+
   const addMsg = (text: string, role: "agent" | "user") =>
     setMessages((prev) => [...prev, { role, text }]);
+
+  const validateToken = async (token: string) => {
+    setChecking(true);
+    const { data, error } = await supabase
+      .from("students")
+      .select("full_name, display_name, is_profile_active")
+      .eq("access_token", token)
+      .maybeSingle();
+
+    setChecking(false);
+
+    if (error || !data) {
+      addMsg("This access link is invalid or has expired. Please contact support.", "agent");
+      return;
+    }
+
+    if (!data.is_profile_active) {
+      addMsg("Your account is not active yet. Please wait for activation.", "agent");
+      return;
+    }
+
+    const name = data.display_name || data.full_name;
+    setVerifiedName(name);
+    setGateStatus("approved");
+    setOpen(true);
+    addMsg(`Welcome back ${name}! Starting your session...`, "agent");
+    setTimeout(() => startSessionWithName(name), 800);
+  };
 
   const checkAccess = async () => {
     const trimmed = nameInput.trim();
     if (!trimmed || trimmed.length < 2) return;
     setChecking(true);
 
-    // Exact match first — use limit(5) to detect duplicates
     let { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active")
+      .select("full_name, display_name, is_profile_active, access_token")
       .or(`display_name.ilike.${trimmed},full_name.ilike.${trimmed}`)
       .limit(5);
 
-    // Partial fallback only if zero exact matches
     if (!error && (!data || data.length === 0)) {
       ({ data, error } = await supabase
         .from("students")
-        .select("full_name, display_name, is_profile_active")
+        .select("full_name, display_name, is_profile_active, access_token")
         .or(`display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
         .limit(5));
     }
@@ -71,7 +106,6 @@ export function CyberMentorWidget() {
       return;
     }
 
-    // Multiple matches — ask for email instead
     if (data.length > 1) {
       setNeedsEmail(true);
       addMsg("I found more than one person with that name. Please enter your email address to identify you.", "agent");
@@ -84,10 +118,17 @@ export function CyberMentorWidget() {
       return;
     }
 
-    setVerifiedName(data[0].display_name || data[0].full_name || trimmed);
+    // Valid student found — but require token for actual session
+    if (!data[0].access_token) {
+      addMsg("Your account is active but you need your personal access link to start a session. Check your email or WhatsApp for the link sent by the admin.", "agent");
+      return;
+    }
+
+    const name = data[0].display_name || data[0].full_name || trimmed;
+    setVerifiedName(name);
     setGateStatus("approved");
     addMsg(`Access confirmed! Starting your session now...`, "agent");
-    setTimeout(() => startSession(), 800);
+    setTimeout(() => startSessionWithName(name), 800);
   };
 
   const checkByEmail = async () => {
@@ -97,7 +138,7 @@ export function CyberMentorWidget() {
 
     const { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active")
+      .select("full_name, display_name, is_profile_active, access_token")
       .eq("email", trimmed)
       .maybeSingle();
 
@@ -117,14 +158,21 @@ export function CyberMentorWidget() {
       return;
     }
 
+    if (!data.access_token) {
+      setNeedsEmail(false);
+      addMsg("Your account is active but you need your personal access link to start a session. Check your email or WhatsApp for the link sent by the admin.", "agent");
+      return;
+    }
+
     setNeedsEmail(false);
-    setVerifiedName(data.display_name || data.full_name || trimmed);
+    const name = data.display_name || data.full_name || trimmed;
+    setVerifiedName(name);
     setGateStatus("approved");
     addMsg("Access confirmed! Starting your session now...", "agent");
-    setTimeout(() => startSession(), 800);
+    setTimeout(() => startSessionWithName(name), 800);
   };
 
-  const startSession = async () => {
+  const startSessionWithName = async (name: string) => {
     const ElevenLabsClient = window.client;
     if (!ElevenLabsClient) {
       addMsg("SDK not ready yet. Please wait a moment and try again.", "agent");
@@ -138,37 +186,27 @@ export function CyberMentorWidget() {
         agentId: AGENT_ID,
 
         dynamicVariables: {
-          verified_name: verifiedName,
+          verified_name: name,
         },
 
         clientTools: {
-          // ElevenLabs calls this when it has a name to look up
-          lookup_student: async ({ name }: { name: string }) => {
-            const trimmed = name?.trim();
+          lookup_student: async ({ name: lookupName }: { name: string }) => {
+            const trimmed = lookupName?.trim();
             if (!trimmed || trimmed.length < 2) {
               return JSON.stringify({ found: false, reason: "invalid_name" });
             }
 
-            // Exact match first, fall back to partial if nothing found
             let { data, error } = await supabase
               .from("students")
-              .select(
-                "full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active"
-              )
-              .or(
-                `display_name.ilike.${trimmed},full_name.ilike.${trimmed}`
-              )
+              .select("full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active")
+              .or(`display_name.ilike.${trimmed},full_name.ilike.${trimmed}`)
               .limit(5);
 
             if (!error && (!data || data.length === 0)) {
               ({ data, error } = await supabase
                 .from("students")
-                .select(
-                  "full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active"
-                )
-                .or(
-                  `display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`
-                )
+                .select("full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active")
+                .or(`display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
                 .limit(5));
             }
 
@@ -177,21 +215,11 @@ export function CyberMentorWidget() {
             }
 
             if (data.length > 1) {
-              // Multiple matches — ask agent to be more specific
-              const names = data
-                .map((s) => s.display_name || s.full_name)
-                .filter(Boolean)
-                .join(", ");
-              return JSON.stringify({
-                found: false,
-                reason: "multiple_matches",
-                matches: names,
-              });
+              const names = data.map((s) => s.display_name || s.full_name).filter(Boolean).join(", ");
+              return JSON.stringify({ found: false, reason: "multiple_matches", matches: names });
             }
 
             const s = data[0];
-
-            // Beta gate — only active students can proceed
             if (!s.is_profile_active) {
               return JSON.stringify({ found: false, reason: "not_invited" });
             }
@@ -234,6 +262,8 @@ export function CyberMentorWidget() {
       addMsg("Microphone access required. Please allow mic access and try again.", "agent");
     }
   };
+
+  const startSession = async () => startSessionWithName(verifiedName);
 
   const endSession = async () => {
     if (conversationRef.current) {
@@ -381,22 +411,12 @@ export function CyberMentorWidget() {
                   : "border-primary/20",
               ].join(" ")}
               style={{
-                background:
-                  "radial-gradient(circle at 35% 35%, hsl(var(--secondary)), hsl(var(--background)))",
+                background: "radial-gradient(circle at 35% 35%, hsl(var(--secondary)), hsl(var(--background)))",
               }}
             >
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path
-                  d="M16 7a3.5 3.5 0 0 1 3.5 3.5v7a3.5 3.5 0 0 1-7 0v-7A3.5 3.5 0 0 1 16 7z"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M9 18a7 7 0 0 0 14 0"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
+                <path d="M16 7a3.5 3.5 0 0 1 3.5 3.5v7a3.5 3.5 0 0 1-7 0v-7A3.5 3.5 0 0 1 16 7z" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+                <path d="M9 18a7 7 0 0 0 14 0" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" />
                 <line x1="16" y1="25" x2="16" y2="29" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" />
                 <line x1="12" y1="29" x2="20" y2="29" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
@@ -411,10 +431,7 @@ export function CyberMentorWidget() {
                 className="w-[3px] rounded-full transition-all"
                 style={{
                   height: isActive ? `${Math.max(4, h * (0.4 + Math.random() * 0.6))}px` : "4px",
-                  background:
-                    state === "speaking"
-                      ? "hsl(var(--cyber-green))"
-                      : "hsl(var(--primary))",
+                  background: state === "speaking" ? "hsl(var(--cyber-green))" : "hsl(var(--primary))",
                   opacity: isActive ? 0.9 : 0.25,
                   transitionDuration: `${100 + i * 30}ms`,
                 }}
@@ -533,7 +550,7 @@ export function CyberMentorWidget() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border/30">
           <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-            Powered by <span className="text-primary">EmmaLabs</span>
+            Powered by <span className="text-primary">ElevenLabs</span>
           </span>
           <span className="font-mono text-[10px] text-muted-foreground">🔒 Encrypted</span>
         </div>

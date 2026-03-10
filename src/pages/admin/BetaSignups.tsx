@@ -3,11 +3,10 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, RefreshCw, CheckCircle, Clock, XCircle,
-  UserPlus, Search, ChevronDown, ChevronUp, Sparkles
+  UserPlus, Search, ChevronDown, ChevronUp, Sparkles, Copy
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/layout/Navbar";
 import { toast } from "@/components/ui/use-toast";
 
@@ -43,6 +42,13 @@ const STATUS_BADGE: Record<string, { label: string; class: string; icon: React.R
   },
 };
 
+// Generate a secure random token
+function generateToken(): string {
+  const array = new Uint8Array(24);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default function BetaSignups() {
   const [signups, setSignups] = useState<BetaSignup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +56,7 @@ export default function BetaSignups() {
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [activating, setActivating] = useState<string | null>(null);
+  const [activatedLinks, setActivatedLinks] = useState<Record<string, string>>({});
 
   const fetchSignups = async () => {
     setLoading(true);
@@ -71,6 +78,9 @@ export default function BetaSignups() {
   const activate = async (signup: BetaSignup) => {
     setActivating(signup.id);
     try {
+      const token = generateToken();
+      const accessLink = `${window.location.origin}/?token=${token}`;
+
       // Check if student already exists
       const { data: existing } = await supabase
         .from("students")
@@ -79,13 +89,13 @@ export default function BetaSignups() {
         .maybeSingle();
 
       if (existing) {
-        // Already exists — just make sure they're active
+        // Already exists — update token and make active
         await supabase
           .from("students")
-          .update({ is_profile_active: true })
+          .update({ is_profile_active: true, access_token: token })
           .eq("email", signup.email);
       } else {
-        // Insert new student record
+        // Insert new student record with token
         const { error: insertErr } = await supabase
           .from("students")
           .insert({
@@ -96,6 +106,7 @@ export default function BetaSignups() {
             target_role: signup.target_role,
             weekly_hours: signup.weekly_hours,
             is_profile_active: true,
+            access_token: token,
           });
         if (insertErr) throw insertErr;
       }
@@ -107,10 +118,12 @@ export default function BetaSignups() {
         .eq("id", signup.id);
       if (updateErr) throw updateErr;
 
+      // Store link to show in UI
+      setActivatedLinks((prev) => ({ ...prev, [signup.id]: accessLink }));
       setSignups((prev) =>
         prev.map((s) => s.id === signup.id ? { ...s, status: "approved" } : s)
       );
-      toast({ title: `✅ ${signup.display_name} activated`, description: "Student can now access CyberMentor." });
+      toast({ title: `✅ ${signup.display_name} activated`, description: "Personal access link generated — copy and send it to them." });
     } catch (err: any) {
       toast({ title: "Activation failed", description: err.message, variant: "destructive" });
     } finally {
@@ -130,6 +143,11 @@ export default function BetaSignups() {
       setSignups((prev) => prev.map((s) => s.id === id ? { ...s, status: "rejected" } : s));
       toast({ title: `${name} marked as rejected` });
     }
+  };
+
+  const copyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    toast({ title: "Link copied!", description: "Send this to the student via WhatsApp or email." });
   };
 
   const filtered = signups.filter((s) => {
@@ -220,6 +238,7 @@ export default function BetaSignups() {
               {filtered.map((signup) => {
                 const badge = STATUS_BADGE[signup.status] || STATUS_BADGE.pending;
                 const isExpanded = expanded === signup.id;
+                const activatedLink = activatedLinks[signup.id];
 
                 return (
                   <motion.div
@@ -282,6 +301,25 @@ export default function BetaSignups() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Access link shown immediately after activation */}
+                    {activatedLink && (
+                      <div className="border-t border-cyber-green/20 px-4 py-3 bg-cyber-green/5 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-mono text-cyber-green mb-0.5">Personal Access Link — send this to the student:</div>
+                          <div className="text-xs text-muted-foreground font-mono truncate">{activatedLink}</div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyLink(activatedLink)}
+                          className="h-8 gap-1 text-xs border-cyber-green/30 text-cyber-green hover:bg-cyber-green/10 flex-shrink-0"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Expanded details */}
                     {isExpanded && (
