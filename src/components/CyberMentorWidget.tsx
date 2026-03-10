@@ -20,10 +20,15 @@ export function CyberMentorWidget() {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<SessionState>("idle");
   const [muted, setMuted] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [gateStatus, setGateStatus] = useState<"pending" | "approved" | "rejected" | "not_found">("pending");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "agent",
-      text: "👋 Hey, I'm CyberMentor. Start a session and I'll pull up your personalized learning profile.",
+      text: "👋 Hey, I'm CyberMentor. Enter your display name below to get started.",
     },
   ]);
   const conversationRef = useRef<any>(null);
@@ -35,6 +40,86 @@ export function CyberMentorWidget() {
 
   const addMsg = (text: string, role: "agent" | "user") =>
     setMessages((prev) => [...prev, { role, text }]);
+
+  const checkAccess = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    setChecking(true);
+
+    // Exact match first — use limit(5) to detect duplicates
+    let { data, error } = await supabase
+      .from("students")
+      .select("full_name, display_name, is_profile_active")
+      .or(`display_name.ilike.${trimmed},full_name.ilike.${trimmed}`)
+      .limit(5);
+
+    // Partial fallback only if zero exact matches
+    if (!error && (!data || data.length === 0)) {
+      ({ data, error } = await supabase
+        .from("students")
+        .select("full_name, display_name, is_profile_active")
+        .or(`display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`)
+        .limit(5));
+    }
+
+    setChecking(false);
+
+    if (error || !data || data.length === 0) {
+      setGateStatus("not_found");
+      addMsg("I couldn't find a profile under that name. Head to surveyresults.pages.dev to register first.", "agent");
+      return;
+    }
+
+    // Multiple matches — ask for email instead
+    if (data.length > 1) {
+      setNeedsEmail(true);
+      addMsg("I found more than one person with that name. Please enter your email address to identify you.", "agent");
+      return;
+    }
+
+    if (!data[0].is_profile_active) {
+      setGateStatus("rejected");
+      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at surveyresults.pages.dev and we'll activate you soon!", "agent");
+      return;
+    }
+
+    setGateStatus("approved");
+    addMsg(`Access confirmed! Starting your session now...`, "agent");
+    setTimeout(() => startSession(), 800);
+  };
+
+  const checkByEmail = async () => {
+    const trimmed = emailInput.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) return;
+    setChecking(true);
+
+    const { data, error } = await supabase
+      .from("students")
+      .select("full_name, display_name, is_profile_active")
+      .eq("email", trimmed)
+      .maybeSingle();
+
+    setChecking(false);
+
+    if (error || !data) {
+      setGateStatus("not_found");
+      setNeedsEmail(false);
+      addMsg("I couldn't find a profile with that email. Head to surveyresults.pages.dev to register first.", "agent");
+      return;
+    }
+
+    if (!data.is_profile_active) {
+      setGateStatus("rejected");
+      setNeedsEmail(false);
+      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at surveyresults.pages.dev and we'll activate you soon!", "agent");
+      return;
+    }
+
+    setNeedsEmail(false);
+    setGateStatus("approved");
+    addMsg("Access confirmed! Starting your session now...", "agent");
+    setTimeout(() => startSession(), 800);
+  };
 
   const startSession = async () => {
     const ElevenLabsClient = window.client;
@@ -61,7 +146,7 @@ export function CyberMentorWidget() {
             let { data, error } = await supabase
               .from("students")
               .select(
-                "full_name, display_name, journey_level, target_role, weekly_hours, certifications"
+                "full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active"
               )
               .or(
                 `display_name.ilike.${trimmed},full_name.ilike.${trimmed}`
@@ -72,7 +157,7 @@ export function CyberMentorWidget() {
               ({ data, error } = await supabase
                 .from("students")
                 .select(
-                  "full_name, display_name, journey_level, target_role, weekly_hours, certifications"
+                  "full_name, display_name, journey_level, target_role, weekly_hours, certifications, is_profile_active"
                 )
                 .or(
                   `display_name.ilike.%${trimmed}%,full_name.ilike.%${trimmed}%`
@@ -98,6 +183,12 @@ export function CyberMentorWidget() {
             }
 
             const s = data[0];
+
+            // Beta gate — only active students can proceed
+            if (!s.is_profile_active) {
+              return JSON.stringify({ found: false, reason: "not_invited" });
+            }
+
             return JSON.stringify({
               found: true,
               name: s.display_name || s.full_name || trimmed,
@@ -144,6 +235,10 @@ export function CyberMentorWidget() {
     }
     setState("idle");
     setMuted(false);
+    setGateStatus("pending");
+    setNameInput("");
+    setEmailInput("");
+    setNeedsEmail(false);
   };
 
   const toggleMute = () => {
@@ -346,39 +441,85 @@ export function CyberMentorWidget() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-border/50">
-          <button
-            onClick={toggleMute}
-            disabled={!isActive}
-            title={muted ? "Unmute" : "Mute"}
-            className={[
-              "flex items-center justify-center w-10 h-10 rounded-lg border text-sm",
-              "transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed",
-              muted
-                ? "border-destructive text-destructive bg-destructive/10"
-                : "border-border/50 text-muted-foreground hover:border-primary hover:text-primary",
-            ].join(" ")}
-          >
-            {muted ? "🔇" : "🎤"}
-          </button>
+        <div className="flex flex-col gap-2 px-4 py-3 border-t border-border/50">
+          {/* Pre-session name gate */}
+          {!isActive && gateStatus !== "approved" && !needsEmail && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => { setNameInput(e.target.value); setGateStatus("pending"); }}
+                onKeyDown={(e) => e.key === "Enter" && checkAccess()}
+                placeholder="Enter your display name..."
+                className="flex-1 h-10 px-3 rounded-lg border border-border/50 bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary font-mono"
+              />
+              <button
+                onClick={checkAccess}
+                disabled={checking || nameInput.trim().length < 2}
+                className="h-10 px-4 rounded-lg bg-primary text-primary-foreground font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90"
+              >
+                {checking ? "⋯" : "Check"}
+              </button>
+            </div>
+          )}
 
-          <button
-            onClick={isActive ? endSession : startSession}
-            disabled={state === "connecting"}
-            className={[
-              "flex-1 h-10 rounded-lg font-mono text-xs font-bold uppercase tracking-wider",
-              "transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
-              isActive
-                ? "border border-destructive text-destructive hover:bg-destructive/10"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-            ].join(" ")}
-          >
-            {state === "connecting"
-              ? "⋯ Connecting"
-              : isActive
-              ? "■ End Session"
-              : "▸ Start Session"}
-          </button>
+          {/* Email fallback for multiple matches */}
+          {!isActive && needsEmail && (
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && checkByEmail()}
+                placeholder="Enter your email address..."
+                className="flex-1 h-10 px-3 rounded-lg border border-cyber-amber/40 bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-cyber-amber font-mono"
+              />
+              <button
+                onClick={checkByEmail}
+                disabled={checking || !emailInput.includes("@")}
+                className="h-10 px-4 rounded-lg bg-cyber-amber/80 text-background font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-cyber-amber"
+              >
+                {checking ? "⋯" : "Verify"}
+              </button>
+            </div>
+          )}
+
+          {/* Active session controls */}
+          {(isActive || gateStatus === "approved") && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleMute}
+                disabled={!isActive}
+                title={muted ? "Unmute" : "Mute"}
+                className={[
+                  "flex items-center justify-center w-10 h-10 rounded-lg border text-sm",
+                  "transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed",
+                  muted
+                    ? "border-destructive text-destructive bg-destructive/10"
+                    : "border-border/50 text-muted-foreground hover:border-primary hover:text-primary",
+                ].join(" ")}
+              >
+                {muted ? "🔇" : "🎤"}
+              </button>
+              <button
+                onClick={isActive ? endSession : startSession}
+                disabled={state === "connecting"}
+                className={[
+                  "flex-1 h-10 rounded-lg font-mono text-xs font-bold uppercase tracking-wider",
+                  "transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed",
+                  isActive
+                    ? "border border-destructive text-destructive hover:bg-destructive/10"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90",
+                ].join(" ")}
+              >
+                {state === "connecting"
+                  ? "⋯ Connecting"
+                  : isActive
+                  ? "■ End Session"
+                  : "▸ Start Session"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
