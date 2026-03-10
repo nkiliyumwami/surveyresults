@@ -137,10 +137,8 @@ export function CyberMentorWidget() {
       conversationRef.current = await ElevenLabsClient.Conversation.startSession({
         agentId: AGENT_ID,
 
-        overrides: {
-          agent: {
-            firstMessage: `Hey ${verifiedName}! Great to have you here. I already have your profile pulled up — let's get straight into it. What would you like to work on today?`,
-          },
+        dynamicVariables: {
+          verified_name: verifiedName,
         },
 
         clientTools: {
