@@ -525,7 +525,7 @@ export function CyberMentorWidget() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border/30">
           <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-            Powered by <span className="text-primary">ElevenLabs</span>
+            Powered by <span className="text-primary">EmmaSec</span>
           </span>
           <span className="font-mono text-[10px] text-muted-foreground">🔒 Encrypted</span>
         </div>
