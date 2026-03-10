@@ -25,6 +25,7 @@ export function CyberMentorWidget() {
   const [checking, setChecking] = useState(false);
   const [needsEmail, setNeedsEmail] = useState(false);
   const [gateStatus, setGateStatus] = useState<"pending" | "approved" | "rejected" | "not_found">("pending");
+  const [verifiedName, setVerifiedName] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "agent",
@@ -83,6 +84,7 @@ export function CyberMentorWidget() {
       return;
     }
 
+    setVerifiedName(data[0].display_name || data[0].full_name || trimmed);
     setGateStatus("approved");
     addMsg(`Access confirmed! Starting your session now...`, "agent");
     setTimeout(() => startSession(), 800);
@@ -116,6 +118,7 @@ export function CyberMentorWidget() {
     }
 
     setNeedsEmail(false);
+    setVerifiedName(data.display_name || data.full_name || trimmed);
     setGateStatus("approved");
     addMsg("Access confirmed! Starting your session now...", "agent");
     setTimeout(() => startSession(), 800);
@@ -133,6 +136,12 @@ export function CyberMentorWidget() {
 
       conversationRef.current = await ElevenLabsClient.Conversation.startSession({
         agentId: AGENT_ID,
+
+        overrides: {
+          agent: {
+            firstMessage: `Hey ${verifiedName}! Great to have you here. I already have your profile pulled up — let's get straight into it. What would you like to work on today?`,
+          },
+        },
 
         clientTools: {
           // ElevenLabs calls this when it has a name to look up
@@ -239,6 +248,7 @@ export function CyberMentorWidget() {
     setNameInput("");
     setEmailInput("");
     setNeedsEmail(false);
+    setVerifiedName("");
   };
 
   const toggleMute = () => {
@@ -525,7 +535,7 @@ export function CyberMentorWidget() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border/30">
           <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-            Powered by <span className="text-primary">EmmaSec</span>
+            Powered by <span className="text-primary">EmmaLabs</span>
           </span>
           <span className="font-mono text-[10px] text-muted-foreground">🔒 Encrypted</span>
         </div>
