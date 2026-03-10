@@ -52,11 +52,35 @@ export function CyberMentorWidget() {
   const addMsg = (text: string, role: "agent" | "user") =>
     setMessages((prev) => [...prev, { role, text }]);
 
+  // Generate a stable browser/device fingerprint from available browser properties
+  const generateFingerprint = (): string => {
+    const nav = window.navigator;
+    const screen = window.screen;
+    const raw = [
+      nav.userAgent,
+      nav.language,
+      nav.hardwareConcurrency,
+      screen.colorDepth,
+      screen.width + "x" + screen.height,
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      nav.platform,
+    ].join("|");
+
+    // Simple hash function — no external library needed
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+      const char = raw.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(16);
+  };
+
   const validateToken = async (token: string) => {
     setChecking(true);
     const { data, error } = await supabase
       .from("students")
-      .select("full_name, display_name, is_profile_active, daily_sessions_used, last_session_date, access_token")
+      .select("full_name, display_name, is_profile_active, daily_sessions_used, last_session_date, access_token, device_fingerprint")
       .eq("access_token", token)
       .maybeSingle();
 
@@ -70,6 +94,25 @@ export function CyberMentorWidget() {
     if (!data.is_profile_active) {
       addMsg("Your account is not active yet. Please wait for activation.", "agent");
       return;
+    }
+
+    const currentFingerprint = generateFingerprint();
+
+    if (data.device_fingerprint) {
+      // Fingerprint already registered — check if it matches
+      if (data.device_fingerprint !== currentFingerprint) {
+        addMsg(
+          "This access link is registered to another device. If this is your device, please contact your admin to reset your access.",
+          "agent"
+        );
+        return;
+      }
+    } else {
+      // First time use — register this device
+      await supabase
+        .from("students")
+        .update({ device_fingerprint: currentFingerprint })
+        .eq("access_token", token);
     }
 
     const name = data.display_name || data.full_name;
@@ -605,7 +648,7 @@ export function CyberMentorWidget() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border/30">
           <span className="font-mono text-[10px] text-muted-foreground tracking-wider">
-            Powered by <span className="text-primary">ElevenLabs</span>
+            Powered by <span className="text-primary">EmmaLabs</span>
           </span>
           <span className="font-mono text-[10px] text-muted-foreground">🔒 Encrypted</span>
         </div>

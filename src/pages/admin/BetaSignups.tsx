@@ -150,6 +150,19 @@ export default function BetaSignups() {
     toast({ title: "Link copied!", description: "Send this to the student via WhatsApp or email." });
   };
 
+  const resetDevice = async (email: string, name: string) => {
+    const { error } = await supabase
+      .from("students")
+      .update({ device_fingerprint: null })
+      .eq("email", email);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `🔄 Device reset for ${name}`, description: "Their next login will register a new device." });
+    }
+  };
+
   const filtered = signups.filter((s) => {
     const matchesFilter = filter === "all" || s.status === filter;
     const matchesSearch =
@@ -350,6 +363,22 @@ export default function BetaSignups() {
                         <div className="text-xs text-muted-foreground font-mono">
                           Submitted: {new Date(signup.created_at).toLocaleString()}
                         </div>
+                        {signup.status === "approved" && (
+                          <div className="pt-2 border-t border-border/50">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => resetDevice(signup.email, signup.display_name)}
+                              className="h-8 gap-1 text-xs text-cyber-amber border-cyber-amber/30 hover:bg-cyber-amber/10"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              Reset Device
+                            </Button>
+                            <p className="text-[11px] text-muted-foreground mt-1.5">
+                              Use this if the student changed devices and can't access their link.
+                            </p>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </motion.div>
