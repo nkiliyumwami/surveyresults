@@ -15,6 +15,7 @@ const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
 
 // Student pages
 const StudentProfile = lazy(() => import("./pages/student/Profile"));
+const BetaSignup = lazy(() => import("./pages/BetaSignup"));
 
 // Admin pages
 const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
@@ -53,6 +54,9 @@ export const router = createBrowserRouter([
 
   // Student profile
   { path: "/profile/:id", element: withSuspense(<StudentProfile />) },
+
+  // Beta signup
+  { path: "/beta", element: withSuspense(<BetaSignup />) },
 
   // Trainer routes
   { path: "/trainer/login", element: withSuspense(<TrainerLogin />) },

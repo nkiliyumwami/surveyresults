@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle, Terminal } from "lucide-react";
+import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle, Terminal, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,13 @@ export function Navbar() {
               </Link>
             ))}
 
+            <Button asChild size="sm" className="gap-1.5 bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20">
+              <Link to="/beta">
+                <Sparkles className="h-4 w-4" />
+                Join Beta
+              </Link>
+            </Button>
+
             <Button asChild size="sm" variant="outline">
               <Link to="/portal/login" className="flex items-center gap-1.5">
                 <UserCircle className="h-4 w-4" />
@@ -160,6 +167,13 @@ export function Navbar() {
               ))}
 
               <div className="pt-2 border-t border-border/50 space-y-2">
+                <Button asChild className="w-full gap-1.5 bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20">
+                  <Link to="/beta" className="flex items-center justify-center gap-1.5">
+                    <Sparkles className="h-4 w-4" />
+                    Join Beta
+                  </Link>
+                </Button>
+
                 <Button asChild variant="outline" className="w-full">
                   <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
                     <UserCircle className="h-4 w-4" />
