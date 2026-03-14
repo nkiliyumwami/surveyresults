@@ -513,8 +513,78 @@ async function getTrainerAssignmentCounts(): Promise<Map<string, number>> {
   return counts;
 }
 
+const MATCHING_API_URL = "http://187.77.9.140/matching/api/match/run";
+
 /**
- * Bulk auto-assign all unassigned students to best matching trainers
+ * Calls the matching API for a single student.
+ * Returns the match result on success, or null on failure.
+ */
+async function callMatchingApi(
+  studentId: string
+): Promise<{
+  trainerId: string;
+  trainerName: string;
+  score: number;
+} | null> {
+  try {
+    const response = await fetch(MATCHING_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+
+    if (!response.ok) {
+      console.warn(`Matching API returned ${response.status} for student ${studentId}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!data.trainerId) {
+      console.warn(`Matching API returned no trainerId for student ${studentId}`);
+      return null;
+    }
+
+    return {
+      trainerId: data.trainerId,
+      trainerName: data.trainerName ?? "Matched Trainer",
+      score: data.score ?? 0,
+    };
+  } catch (err) {
+    console.warn(`Matching API call failed for student ${studentId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Falls back to the Peter catch-all assignment for a single student.
+ * Inserts the assignment into the database directly.
+ */
+async function assignToCatchAll(
+  student: StudentForMatching,
+  peterTrainer: TrainerForMatching
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("assignments")
+    .insert({
+      student_id: student.id,
+      trainer_id: peterTrainer.id,
+      status: "active",
+    });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
+/**
+ * Bulk auto-assign all unassigned students to best matching trainers.
+ *
+ * Calls the matching API (POST /matching/api/match/run) for each student.
+ * The API handles assignment creation internally on success.
+ * If the API call fails for a student, falls back to assigning them
+ * to the catch-all trainer (Peter).
  *
  * @param students - Array of unassigned students
  * @param trainers - Array of available trainers
@@ -552,86 +622,70 @@ export async function bulkAutoAssign(
     return result;
   }
 
-  // PRIMARY LANDING ZONE: All new students go directly to Peter.
-  // Other trainers receive students via manual redistribution.
+  // Resolve catch-all trainer for fallback
   const peterTrainer = activeTrainers.find(
     (t) => t.email?.toLowerCase() === CATCHALL_TRAINER_EMAIL
   );
 
-  if (!peterTrainer) {
-    result.errors.push(
-      `Default trainer (${CATCHALL_TRAINER_EMAIL}) not found among active trainers`
-    );
-    return result;
-  }
-
-  const assignmentsToCreate: Array<{
-    student_id: string;
-    trainer_id: string;
-    status: string;
-    studentName: string;
-    trainerName: string;
-    score: number;
-  }> = [];
-
   for (let i = 0; i < students.length; i++) {
     const student = students[i];
+    const studentName = student.full_name || `Student ${i + 1}`;
 
     onProgress?.({
       current: i + 1,
       total: students.length,
-      currentStudent: student.full_name || `Student ${i + 1}`,
+      currentStudent: studentName,
       phase: "matching",
     });
 
-    assignmentsToCreate.push({
-      student_id: student.id,
-      trainer_id: peterTrainer.id,
-      status: "active",
-      studentName: student.full_name || student.id,
-      trainerName: peterTrainer.full_name || "Default Trainer",
-      score: 100,
-    });
-  }
+    // Try the matching API first
+    const apiResult = await callMatchingApi(student.id);
 
-  // Batch insert all assignments
-  if (assignmentsToCreate.length > 0) {
+    if (apiResult) {
+      // API succeeded — it handles assignment creation internally
+      result.assigned += 1;
+      result.assignments.push({
+        studentId: student.id,
+        studentName: student.full_name || student.id,
+        trainerId: apiResult.trainerId,
+        trainerName: apiResult.trainerName,
+        score: apiResult.score,
+      });
+      continue;
+    }
+
+    // API failed — fall back to Peter catch-all
+    if (!peterTrainer) {
+      result.failed += 1;
+      result.errors.push(
+        `Matching API failed for "${studentName}" and catch-all trainer (${CATCHALL_TRAINER_EMAIL}) not found`
+      );
+      continue;
+    }
+
     onProgress?.({
-      current: students.length,
+      current: i + 1,
       total: students.length,
-      currentStudent: "Saving assignments...",
+      currentStudent: `${studentName} (fallback)`,
       phase: "assigning",
     });
 
-    // Insert in batches to avoid overwhelming the database
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < assignmentsToCreate.length; i += BATCH_SIZE) {
-      const batch = assignmentsToCreate.slice(i, i + BATCH_SIZE);
+    const fallback = await assignToCatchAll(student, peterTrainer);
 
-      const { error } = await supabase
-        .from("assignments")
-        .insert(batch.map((a) => ({
-          student_id: a.student_id,
-          trainer_id: a.trainer_id,
-          status: a.status,
-        })));
-
-      if (error) {
-        // Try to identify which assignments failed
-        result.failed += batch.length;
-        result.errors.push(`Batch insert error: ${error.message}`);
-      } else {
-        result.assigned += batch.length;
-        result.assignments.push(
-          ...batch.map((a) => ({
-            studentId: a.student_id,
-            studentName: a.studentName,
-            trainerId: a.trainer_id,
-            trainerName: a.trainerName,
-            score: a.score,
-          }))
-        );
-      }
+    if (fallback.success) {
+      result.assigned += 1;
+      result.assignments.push({
+        studentId: student.id,
+        studentName: student.full_name || student.id,
+        trainerId: peterTrainer.id,
+        trainerName: peterTrainer.full_name || "Default Trainer",
+        score: 100,
+      });
+    } else {
+      result.failed += 1;
+      result.errors.push(
+        `Failed to assign "${studentName}" to catch-all: ${fallback.error}`
+      );
     }
   }
 
