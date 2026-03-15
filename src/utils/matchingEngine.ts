@@ -515,7 +515,7 @@ async function getTrainerAssignmentCounts(): Promise<Map<string, number>> {
 
 // Proxied through a Cloudflare Pages Function (functions/api/match/run.js)
 // to avoid mixed-content issues (the backend has no TLS certificate).
-const MATCHING_API_URL = "/api/match/run";
+const MATCHING_API_URL = "http://matching.aikigali.com/api/match/run";
 
 /**
  * Calls the matching API for a single student.
