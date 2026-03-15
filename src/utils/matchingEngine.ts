@@ -513,11 +513,9 @@ async function getTrainerAssignmentCounts(): Promise<Map<string, number>> {
   return counts;
 }
 
-// NOTE: This MUST be HTTPS. Using http:// from an HTTPS frontend
-// (e.g. surveyresults.pages.dev) causes the browser to block the
-// request as "mixed content".  If the origin server does not support
-// HTTPS, proxy through a Cloudflare Worker or Pages Function instead.
-const MATCHING_API_URL = "https://187.77.9.140/matching/api/match/run";
+// Proxied through a Cloudflare Pages Function (functions/api/match/run.js)
+// to avoid mixed-content issues (the backend has no TLS certificate).
+const MATCHING_API_URL = "/api/match/run";
 
 /**
  * Calls the matching API for a single student.
