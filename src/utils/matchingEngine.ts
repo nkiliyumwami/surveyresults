@@ -513,7 +513,11 @@ async function getTrainerAssignmentCounts(): Promise<Map<string, number>> {
   return counts;
 }
 
-const MATCHING_API_URL = "http://187.77.9.140/matching/api/match/run";
+// NOTE: This MUST be HTTPS. Using http:// from an HTTPS frontend
+// (e.g. surveyresults.pages.dev) causes the browser to block the
+// request as "mixed content".  If the origin server does not support
+// HTTPS, proxy through a Cloudflare Worker or Pages Function instead.
+const MATCHING_API_URL = "https://187.77.9.140/matching/api/match/run";
 
 /**
  * Calls the matching API for a single student.
@@ -527,6 +531,8 @@ async function callMatchingApi(
   score: number;
 } | null> {
   try {
+    console.log(`[MatchingAPI] Calling ${MATCHING_API_URL} for student ${studentId}`);
+
     const response = await fetch(MATCHING_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -534,14 +540,21 @@ async function callMatchingApi(
     });
 
     if (!response.ok) {
-      console.warn(`Matching API returned ${response.status} for student ${studentId}`);
+      console.error(
+        `[MatchingAPI] HTTP ${response.status} ${response.statusText} for student ${studentId}. ` +
+        `Response body: ${await response.text().catch(() => "(unreadable)")}`
+      );
       return null;
     }
 
     const data = await response.json();
+    console.log(`[MatchingAPI] Response for student ${studentId}:`, JSON.stringify(data));
 
     if (!data.trainerId) {
-      console.warn(`Matching API returned no trainerId for student ${studentId}`);
+      console.error(
+        `[MatchingAPI] No trainerId in response for student ${studentId}. ` +
+        `Full payload: ${JSON.stringify(data)}`
+      );
       return null;
     }
 
@@ -550,8 +563,15 @@ async function callMatchingApi(
       trainerName: data.trainerName ?? "Matched Trainer",
       score: data.score ?? 0,
     };
-  } catch (err) {
-    console.warn(`Matching API call failed for student ${studentId}:`, err);
+  } catch (err: unknown) {
+    // This is where mixed-content / CORS / network errors land.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[MatchingAPI] Request FAILED for student ${studentId}. ` +
+      `This is likely a CORS or mixed-content error if the message mentions ` +
+      `"Failed to fetch" or "Mixed Content". Error: ${message}`,
+      err
+    );
     return null;
   }
 }
