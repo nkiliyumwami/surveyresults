@@ -1,14 +1,29 @@
-export async function onRequestGet() {
-  return Response.json({ status: "Function is reachable" });
-}
-
 export async function onRequestPost(context) {
-  const body = await context.request.json();
-  const response = await fetch('http://187.77.9.140/matching/api/match/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+  const body = await context.request.text();
+  const upstream = await fetch("https://matching.aikigali.com/api/match/run", {
+    method: "POST",
+    headers: {
+      "Content-Type": context.request.headers.get("Content-Type") || "application/json",
+      "Authorization": context.request.headers.get("Authorization") || "",
+    },
+    body,
   });
-  const data = await response.json();
-  return Response.json(data);
+  const responseHeaders = new Headers(upstream.headers);
+  responseHeaders.set("Cache-Control", "no-store");
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders,
+  });
+}
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "https://surveyresults.pages.dev",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+      "Cache-Control": "no-store",
+    },
+  });
 }
