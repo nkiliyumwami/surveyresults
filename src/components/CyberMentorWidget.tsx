@@ -146,7 +146,7 @@ export function CyberMentorWidget() {
 
     if (error || !data || data.length === 0) {
       setGateStatus("not_found");
-      addMsg("I couldn't find a profile under that name. Head to surveyresults.pages.dev to register first.", "agent");
+      addMsg("I couldn't find a profile under that name. Head to cybermentor.aikigali.com to register first.", "agent");
       return;
     }
 
@@ -158,7 +158,7 @@ export function CyberMentorWidget() {
 
     if (!data[0].is_profile_active) {
       setGateStatus("rejected");
-      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at surveyresults.pages.dev and we'll activate you soon!", "agent");
+      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at cybermentor.aikigali.com and we'll activate you soon!", "agent");
       return;
     }
 
@@ -191,14 +191,14 @@ export function CyberMentorWidget() {
     if (error || !data) {
       setGateStatus("not_found");
       setNeedsEmail(false);
-      addMsg("I couldn't find a profile with that email. Head to surveyresults.pages.dev to register first.", "agent");
+      addMsg("I couldn't find a profile with that email. Head to cybermentor.aikigali.com to register first.", "agent");
       return;
     }
 
     if (!data.is_profile_active) {
       setGateStatus("rejected");
       setNeedsEmail(false);
-      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at surveyresults.pages.dev and we'll activate you soon!", "agent");
+      addMsg("Hey! I found your profile but CyberMentor is currently in private beta. Fill out the beta interest form at cybermentor.aikigali.com and we'll activate you soon!", "agent");
       return;
     }
 

@@ -12,7 +12,7 @@ preview_id = "REPLACE_WITH_PREVIEW_ID"
 crons = ["0 * * * *"]
 
 [vars]
-ALLOWED_ORIGIN = "https://surveyresults.pages.dev"
+ALLOWED_ORIGIN = "https://cybermentor.aikigali.com"
 
 [env.dev]
 name = "icca-portal-worker-dev"
