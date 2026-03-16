@@ -29,7 +29,7 @@ export function CyberMentorWidget() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "agent",
-      text: "👋 Hey, I'm CyberMentor. Enter your display name below to get started.",
+      text: "👋 Hey, I'm Kralisa. Enter your display name below to get started.",
     },
   ]);
   const conversationRef = useRef<any>(null);
@@ -407,7 +407,7 @@ export function CyberMentorWidget() {
       {/* Trigger button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label="Open CyberMentor voice assistant"
+        aria-label="Open Kralisa voice assistant"
         className={[
           "fixed bottom-8 right-8 z-50",
           "w-16 h-16 rounded-full",
@@ -434,7 +434,7 @@ export function CyberMentorWidget() {
       {/* Panel */}
       <div
         role="dialog"
-        aria-label="CyberMentor Voice Assistant"
+        aria-label="Kralisa Voice Assistant"
         className={[
           "fixed bottom-[116px] right-8 z-50",
           "w-[360px] rounded-xl overflow-hidden",
@@ -453,7 +453,7 @@ export function CyberMentorWidget() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-mono text-xs font-bold tracking-widest text-foreground uppercase">
-              CyberMentor
+              Kralisa
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span
