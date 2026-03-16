@@ -409,7 +409,7 @@ export function CyberMentorWidget() {
         onClick={() => setOpen((o) => !o)}
         aria-label="Open Kralisa voice assistant"
         className={[
-          "fixed bottom-8 right-8 z-50",
+          "fixed bottom-4 sm:bottom-8 right-4 sm:right-8 z-50",
           "w-16 h-16 rounded-full",
           "flex items-center justify-center",
           "border transition-all duration-300 bg-card",
@@ -436,8 +436,8 @@ export function CyberMentorWidget() {
         role="dialog"
         aria-label="Kralisa Voice Assistant"
         className={[
-          "fixed bottom-[116px] right-8 z-50",
-          "w-[360px] rounded-xl overflow-hidden",
+          "fixed bottom-[100px] sm:bottom-[116px] right-4 sm:right-8 z-50",
+          "w-[calc(100vw-2rem)] max-w-[360px] rounded-xl overflow-hidden",
           "bg-card border border-border/50",
           "shadow-[0_24px_80px_hsl(0_0%_0%/0.7)]",
           "transition-all duration-300 origin-bottom-right",
