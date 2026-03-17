@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, Calendar, Award, UserRound, LogOut, Mail, Settings2, AlertTriangle, Download, Users } from "lucide-react";
+import { ShieldCheck, Calendar, Award, UserRound, LogOut, Mail, Settings2, AlertTriangle, Download, Users, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
@@ -8,12 +8,15 @@ import { Navbar } from "@/components/layout/Navbar";
 
 type AssignedStudent = {
   id: string;
-  full_name: string;
-  email: string;
-  country: string;
-  journey_level: string;
-  target_role: string;
-  weekly_hours: string;
+  full_name: string | null;
+  display_name: string | null;
+  email: string | null;
+  country: string | null;
+  journey_level: string | null;
+  target_role: string | null;
+  weekly_hours: string | null;
+  certifications: string | null;
+  roadmap: any | null;
 };
 
 export default function TrainerHome() {
@@ -25,6 +28,19 @@ export default function TrainerHome() {
   const [assignedStudents, setAssignedStudents] = useState<AssignedStudent[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [trainerId, setTrainerId] = useState<string | null>(null);
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+
+  const toggleStudentExpand = (studentId: string) => {
+    setExpandedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -77,7 +93,7 @@ export default function TrainerHome() {
       try {
         const { data, error } = await supabase
           .from("assignments")
-          .select("student:students(id, full_name, email, country, journey_level, target_role, weekly_hours)")
+          .select("student:students(id, full_name, display_name, email, country, journey_level, target_role, weekly_hours, certifications, roadmap)")
           .eq("trainer_id", trainerId)
           .eq("status", "active");
 
@@ -89,12 +105,15 @@ export default function TrainerHome() {
           .filter(Boolean)
           .map((s: any) => ({
             id: s.id,
-            full_name: s.full_name || "—",
-            email: s.email || "—",
-            country: s.country || "—",
-            journey_level: s.journey_level || "—",
-            target_role: s.target_role || "—",
-            weekly_hours: s.weekly_hours || "—",
+            full_name: s.full_name || null,
+            display_name: s.display_name || null,
+            email: s.email || null,
+            country: s.country || null,
+            journey_level: s.journey_level || null,
+            target_role: s.target_role || null,
+            weekly_hours: s.weekly_hours || null,
+            certifications: s.certifications || null,
+            roadmap: s.roadmap || null,
           }));
 
         setAssignedStudents(students);
@@ -282,29 +301,168 @@ export default function TrainerHome() {
               No students assigned yet. Check back after the admin runs assignments.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr className="text-left">
-                    <th className="px-3 py-2 font-medium">Name</th>
-                    <th className="px-3 py-2 font-medium">Email</th>
-                    <th className="px-3 py-2 font-medium hidden md:table-cell">Country</th>
-                    <th className="px-3 py-2 font-medium hidden lg:table-cell">Journey</th>
-                    <th className="px-3 py-2 font-medium hidden lg:table-cell">Target Role</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {assignedStudents.map((s) => (
-                    <tr key={s.id} className="border-t border-border/60 hover:bg-muted/20">
-                      <td className="px-3 py-2 font-medium">{s.full_name}</td>
-                      <td className="px-3 py-2">{s.email}</td>
-                      <td className="px-3 py-2 hidden md:table-cell">{s.country}</td>
-                      <td className="px-3 py-2 hidden lg:table-cell">{s.journey_level}</td>
-                      <td className="px-3 py-2 hidden lg:table-cell">{s.target_role}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {assignedStudents.map((s) => {
+                const isExpanded = expandedStudents.has(s.id);
+                const studentName = s.display_name || s.full_name || "Unknown";
+                const rm = s.roadmap;
+                const totalPhases = rm?.phases?.length || 0;
+                const completedPhases = rm?.phases?.filter((p: any) => p.completed).length || 0;
+                const certReadiness = rm?.cert_readiness || 0;
+                const firstUncompletedIndex = rm?.phases?.findIndex((p: any) => !p.completed) ?? -1;
+
+                return (
+                  <div
+                    key={s.id}
+                    className="rounded-lg border border-border/50 bg-muted/10 overflow-hidden"
+                  >
+                    {/* Summary row */}
+                    <button
+                      type="button"
+                      onClick={() => toggleStudentExpand(s.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/20 transition-colors"
+                    >
+                      {/* Left: name + role + country */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {studentName}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {s.target_role && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {s.target_role}
+                            </span>
+                          )}
+                          {s.country && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/40 border border-border/30 text-muted-foreground">
+                              {s.country}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Middle: roadmap progress */}
+                      <div className="flex-shrink-0 text-right">
+                        {rm ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all"
+                                  style={{ width: `${certReadiness}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-mono text-primary">
+                                {certReadiness}%
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Phase {completedPhases} of {totalPhases}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground italic">
+                            No roadmap yet
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Right: weekly hours + chevron */}
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        {s.weekly_hours && (
+                          <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                            {s.weekly_hours}h/wk
+                          </span>
+                        )}
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </button>
+
+                    {/* Expanded section */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-border/30 pt-3 space-y-3">
+                        {/* Student info grid */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {s.email && <span className="font-mono">{s.email}</span>}
+                          {s.journey_level && <span>Level: {s.journey_level}</span>}
+                          {s.certifications && <span>Certs: {s.certifications}</span>}
+                        </div>
+
+                        {!rm ? (
+                          <p className="text-xs text-muted-foreground italic">
+                            This student has not generated their learning roadmap yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {rm.summary && (
+                              <p className="text-xs text-muted-foreground italic">
+                                {rm.summary}
+                              </p>
+                            )}
+
+                            {/* Cert readiness bar */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Cert Readiness</span>
+                                <span className="font-mono font-bold text-primary">{certReadiness}%</span>
+                              </div>
+                              <div className="h-2 rounded-full bg-muted/40 border border-border/30 overflow-hidden">
+                                <div
+                                  className="h-full rounded-full bg-primary transition-all duration-500"
+                                  style={{ width: `${certReadiness}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Phase list */}
+                            {rm.phases?.map((phase: any, i: number) => {
+                              const isCurrent = !phase.completed && i === firstUncompletedIndex;
+                              return (
+                                <div
+                                  key={i}
+                                  className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs ${
+                                    phase.completed
+                                      ? "bg-green-500/5 border border-green-500/20"
+                                      : isCurrent
+                                      ? "bg-primary/5 border border-primary/30"
+                                      : "bg-muted/10 border border-border/30"
+                                  }`}
+                                >
+                                  {phase.completed ? (
+                                    <Check className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
+                                  ) : isCurrent ? (
+                                    <span className="h-3.5 w-3.5 rounded-full border-2 border-primary mt-0.5 flex-shrink-0" />
+                                  ) : (
+                                    <span className="h-3.5 w-3.5 rounded-full border-2 border-border/40 mt-0.5 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium text-foreground">
+                                      Phase {phase.phase}: {phase.title}
+                                    </span>
+                                    <span className="text-muted-foreground ml-2">
+                                      ({phase.duration_weeks} weeks)
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {rm.generated_at && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Generated: {rm.generated_at}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </motion.section>
