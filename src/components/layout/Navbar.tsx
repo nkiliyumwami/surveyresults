@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { StudentPortalModal } from "@/components/landing/StudentPortalModal";
 
 export function Navbar() {
   const [isTrainer, setIsTrainer] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
 
@@ -117,11 +119,9 @@ export function Navbar() {
               </Link>
             </Button>
 
-            <Button asChild size="sm" variant="outline">
-              <Link to="/portal/login" className="flex items-center gap-1.5">
-                <UserCircle className="h-4 w-4" />
-                My Profile
-              </Link>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setPortalOpen(true)}>
+              <UserCircle className="h-4 w-4" />
+              Student Profile
             </Button>
 
             {isTrainer ? (
@@ -190,11 +190,9 @@ export function Navbar() {
                   </Link>
                 </Button>
 
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
-                    <UserCircle className="h-4 w-4" />
-                    My Profile
-                  </Link>
+                <Button variant="outline" className="w-full gap-1.5" onClick={() => { setPortalOpen(true); setMobileMenuOpen(false); }}>
+                  <UserCircle className="h-4 w-4" />
+                  Student Profile
                 </Button>
 
                 {isTrainer ? (
@@ -215,6 +213,7 @@ export function Navbar() {
         )}
       </AnimatePresence>
 
+      <StudentPortalModal open={portalOpen} onOpenChange={setPortalOpen} />
     </nav>
   );
 }
