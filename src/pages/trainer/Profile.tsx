@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, MapPin, Clock, Users } from "lucide-react";
+import { Plus, Trash2, MapPin, Clock, Users, ChevronDown, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,8 +74,31 @@ export default function TrainerProfile() {
 
   // Assigned students
   const [assignedStudents, setAssignedStudents] = useState<
-    { id: string; full_name: string | null; email: string | null; assigned_at: string }[]
+    {
+      id: string;
+      full_name: string | null;
+      display_name: string | null;
+      email: string | null;
+      assigned_at: string;
+      target_role: string | null;
+      journey_level: string | null;
+      certifications: string | null;
+      roadmap: any | null;
+    }[]
   >([]);
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+
+  const toggleStudentExpand = (studentId: string) => {
+    setExpandedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
 
   // Availability - structured
   const [weeklyCapacity, setWeeklyCapacity] = useState("");
@@ -219,7 +242,7 @@ export default function TrainerProfile() {
     try {
       const { data, error } = await supabase
         .from("assignments")
-        .select("created_at, student:students(id, full_name, email)")
+        .select("created_at, student:students(id, full_name, display_name, email, target_role, journey_level, certifications, roadmap)")
         .eq("trainer_id", trainerId)
         .eq("status", "active")
         .order("created_at", { ascending: true });
@@ -228,10 +251,15 @@ export default function TrainerProfile() {
 
       setAssignedStudents(
         (data || []).map((row: any) => ({
-          id: row.student?.id ?? "",
-          full_name: row.student?.full_name ?? null,
-          email: row.student?.email ?? null,
+          id: row.student?.id || "",
+          full_name: row.student?.full_name || null,
+          display_name: row.student?.display_name || null,
+          email: row.student?.email || null,
           assigned_at: row.created_at,
+          target_role: row.student?.target_role || null,
+          journey_level: row.student?.journey_level || null,
+          certifications: row.student?.certifications || null,
+          roadmap: row.student?.roadmap || null,
         }))
       );
     } catch (e) {
@@ -686,38 +714,152 @@ export default function TrainerProfile() {
                 No students assigned to you yet.
               </p>
             ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/50 text-left text-xs text-muted-foreground">
-                      <th className="pb-2 pr-4 font-medium">#</th>
-                      <th className="pb-2 pr-4 font-medium">Name</th>
-                      <th className="pb-2 pr-4 font-medium">Email</th>
-                      <th className="pb-2 font-medium">Assigned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assignedStudents.map((s, i) => (
-                      <tr
-                        key={s.id}
-                        className="border-b border-border/30 last:border-0"
+              <div className="mt-4 space-y-3">
+                {assignedStudents.map((s) => {
+                  const isExpanded = expandedStudents.has(s.id);
+                  const studentName = s.display_name || s.full_name || "Unknown";
+                  const rm = s.roadmap;
+                  const totalPhases = rm?.phases?.length || 0;
+                  const completedPhases = rm?.phases?.filter((p: any) => p.completed).length || 0;
+                  const certReadiness = rm?.cert_readiness || 0;
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="rounded-lg border border-border/50 bg-muted/10 overflow-hidden"
+                    >
+                      {/* Summary row — clickable */}
+                      <button
+                        type="button"
+                        onClick={() => toggleStudentExpand(s.id)}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/20 transition-colors"
                       >
-                        <td className="py-2 pr-4 text-xs text-muted-foreground">
-                          {i + 1}
-                        </td>
-                        <td className="py-2 pr-4 text-foreground">
-                          {s.full_name || "Unknown"}
-                        </td>
-                        <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">
-                          {s.email || "—"}
-                        </td>
-                        <td className="py-2 text-xs text-muted-foreground">
-                          {new Date(s.assigned_at).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        {/* Left: name + role */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {studentName}
+                          </p>
+                          {s.target_role && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {s.target_role}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Middle: roadmap progress */}
+                        <div className="flex-shrink-0 text-right">
+                          {rm ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all"
+                                    style={{ width: `${certReadiness}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] font-mono text-primary">
+                                  {certReadiness}%
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">
+                                Phase {completedPhases} of {totalPhases}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-muted-foreground italic">
+                              No roadmap yet
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Right: date + chevron */}
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                            {new Date(s.assigned_at).toLocaleDateString()}
+                          </span>
+                          <ChevronDown
+                            className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+
+                      {/* Expanded section */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-border/30 pt-3 space-y-3">
+                          {/* Student meta */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                            {s.email && (
+                              <span className="font-mono">{s.email}</span>
+                            )}
+                            {s.journey_level && (
+                              <span>Level: {s.journey_level}</span>
+                            )}
+                            {s.certifications && (
+                              <span>Certs: {s.certifications}</span>
+                            )}
+                            <span>Assigned: {new Date(s.assigned_at).toLocaleDateString()}</span>
+                          </div>
+
+                          {!rm ? (
+                            <p className="text-xs text-muted-foreground italic">
+                              This student has not generated their learning roadmap yet.
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {rm.summary && (
+                                <p className="text-xs text-muted-foreground italic">
+                                  {rm.summary}
+                                </p>
+                              )}
+
+                              {/* Cert readiness bar */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">Cert Readiness</span>
+                                  <span className="font-mono font-bold text-primary">{certReadiness}%</span>
+                                </div>
+                                <div className="h-2 rounded-full bg-muted/40 border border-border/30 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-primary transition-all duration-500"
+                                    style={{ width: `${certReadiness}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Phase list */}
+                              {rm.phases?.map((phase: any, i: number) => (
+                                <div
+                                  key={i}
+                                  className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs ${
+                                    phase.completed
+                                      ? "bg-green-500/5 border border-green-500/20"
+                                      : "bg-muted/10 border border-border/30"
+                                  }`}
+                                >
+                                  {phase.completed ? (
+                                    <Check className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
+                                  ) : (
+                                    <span className="h-3.5 w-3.5 rounded-full border-2 border-primary/40 mt-0.5 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-medium text-foreground">
+                                      Phase {phase.phase}: {phase.title}
+                                    </span>
+                                    <span className="text-muted-foreground ml-2">
+                                      ({phase.duration_weeks} weeks)
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </motion.section>
