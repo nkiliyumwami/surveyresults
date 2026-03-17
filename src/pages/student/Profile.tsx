@@ -64,6 +64,15 @@ export default function StudentProfile() {
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
 
+  // OTP auth gate state
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [otpEmail, setOtpEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+
   // Seat application modal state
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [studyGoal, setStudyGoal] = useState("");
@@ -134,6 +143,61 @@ export default function StudentProfile() {
       setNameError(err.message || "Failed to save name");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const resetOtpState = () => {
+    setOtpModalOpen(false);
+    setOtpEmail("");
+    setOtpCode("");
+    setOtpSent(false);
+    setOtpLoading(false);
+    setOtpError("");
+  };
+
+  const sendOtp = async () => {
+    const trimmed = otpEmail.trim().toLowerCase();
+    if (trimmed !== (student?.email || "").toLowerCase()) {
+      setOtpError("This email doesn't match the one on your profile.");
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: trimmed,
+      options: { shouldCreateUser: false },
+    });
+    setOtpLoading(false);
+    if (error) {
+      setOtpError(error.message);
+      return;
+    }
+    setOtpSent(true);
+  };
+
+  const verifyOtp = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+    const { error } = await supabase.auth.verifyOtp({
+      email: otpEmail.trim(),
+      token: otpCode.trim(),
+      type: "magiclink",
+    });
+    setOtpLoading(false);
+    if (error) {
+      setOtpError("Invalid or expired code. Please try again.");
+      return;
+    }
+    setOtpVerified(true);
+    setOtpModalOpen(false);
+    setEditing(true);
+  };
+
+  const handleEditClick = () => {
+    if (otpVerified) {
+      setEditing(true);
+    } else {
+      setOtpModalOpen(true);
     }
   };
 
@@ -252,7 +316,7 @@ export default function StudentProfile() {
                           {name}
                         </h1>
                         <button
-                          onClick={() => setEditing(true)}
+                          onClick={handleEditClick}
                           className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                           title="Edit your name"
                         >
@@ -517,6 +581,112 @@ export default function StudentProfile() {
                 <Lock className="h-4 w-4" />
                 Secure My Seat — $8/mo
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* OTP Verification Modal */}
+      <Dialog
+        open={otpModalOpen}
+        onOpenChange={(open) => {
+          if (!otpLoading) {
+            if (!open) resetOtpState();
+            else setOtpModalOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md border-primary/30 bg-background">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-primary" />
+              Verify Your Identity
+            </DialogTitle>
+            <DialogDescription>
+              To edit your profile, confirm your email address.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!otpSent ? (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  Email address on file
+                </label>
+                <input
+                  type="email"
+                  value={otpEmail}
+                  onChange={(e) => {
+                    setOtpEmail(e.target.value);
+                    setOtpError("");
+                  }}
+                  placeholder="Enter your email"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              {otpError && (
+                <p className="text-xs text-red-400">{otpError}</p>
+              )}
+              <Button
+                className="w-full gap-2"
+                disabled={otpLoading || !otpEmail.trim()}
+                onClick={sendOtp}
+              >
+                {otpLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                {otpLoading ? "Sending..." : "Send Code"}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Code sent to <strong className="text-foreground">{otpEmail.trim()}</strong>
+              </p>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  6-digit code
+                </label>
+                <input
+                  type="text"
+                  value={otpCode}
+                  onChange={(e) => {
+                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    setOtpError("");
+                  }}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground tracking-widest text-center font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              {otpError && (
+                <p className="text-xs text-red-400">{otpError}</p>
+              )}
+              <Button
+                className="w-full gap-2"
+                disabled={otpLoading || otpCode.length < 6}
+                onClick={verifyOtp}
+              >
+                {otpLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                {otpLoading ? "Verifying..." : "Verify"}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpSent(false);
+                  setOtpCode("");
+                  setOtpError("");
+                }}
+                className="w-full text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Resend code
+              </button>
             </div>
           )}
         </DialogContent>
