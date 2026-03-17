@@ -93,6 +93,15 @@ export default function LandingPage() {
     }
   }
 
+  // Auto-open portal modal if navigated with ?openPortal=true
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openPortal") === "true") {
+      setPortalOpen(true);
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   useEffect(() => {
     async function fetchStats() {
       try {
