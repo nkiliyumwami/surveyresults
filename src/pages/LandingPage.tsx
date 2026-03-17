@@ -206,16 +206,6 @@ export default function LandingPage() {
                 size="lg"
                 variant="outline"
                 className="w-full sm:w-auto text-base px-8 py-6"
-                onClick={() => setPortalOpen(true)}
-              >
-                <UserCircle className="mr-2 h-5 w-5" />
-                Manage My Profile
-              </Button>
-
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto text-base px-8 py-6"
                 asChild
               >
                 <Link to="/trainer/login">
