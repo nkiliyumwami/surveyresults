@@ -106,8 +106,6 @@ export default function StudentProfile() {
       setEditName(studentRes.data.display_name || studentRes.data.full_name || "");
       if (studentRes.data.roadmap) {
         setRoadmap(studentRes.data.roadmap);
-      } else {
-        generateRoadmap();
       }
     }
 
@@ -701,10 +699,24 @@ Rules:
                   My Learning Roadmap
                 </h2>
 
+                {!roadmap && !roadmapLoading && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <p className="text-sm text-muted-foreground">No roadmap generated yet. Click below to create your personalized learning path.</p>
+                    <Button
+                      className="gap-2 border-[#0DD8F0]/30 text-[#0DD8F0] hover:bg-[#0DD8F0]/10"
+                      variant="outline"
+                      onClick={generateRoadmap}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generate My Roadmap
+                    </Button>
+                  </div>
+                )}
+
                 {roadmapLoading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                    <p className="text-sm text-muted-foreground">Generating your personalized roadmap...</p>
+                    <Loader2 className="h-8 w-8 text-[#0DD8F0] animate-spin" />
+                    <p className="text-sm text-muted-foreground">Generating your roadmap...</p>
                   </div>
                 )}
 
