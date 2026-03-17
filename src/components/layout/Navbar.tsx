@@ -7,23 +7,40 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isTrainer, setIsTrainer] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+
+  const checkIsTrainer = async (userId: string) => {
+    const { data } = await supabase
+      .from("trainer_profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    setIsTrainer(!!data);
+  };
 
   // Check auth state
   useEffect(() => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
+      if (data.session) {
+        await checkIsTrainer(data.session.user.id);
+      } else {
+        setIsTrainer(false);
+      }
     };
 
     checkAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setIsLoggedIn(!!session);
+      async (event, session) => {
+        if (event === "SIGNED_OUT" || !session) {
+          setIsTrainer(false);
+        } else if (event === "SIGNED_IN" && session) {
+          await checkIsTrainer(session.user.id);
+        }
       }
     );
 
@@ -107,7 +124,7 @@ export function Navbar() {
               </Link>
             </Button>
 
-            {isLoggedIn ? (
+            {isTrainer ? (
               <Button asChild size="sm">
                 <Link to="/trainer">
                   Go to Portal
@@ -180,7 +197,7 @@ export function Navbar() {
                   </Link>
                 </Button>
 
-                {isLoggedIn ? (
+                {isTrainer ? (
                   <Button asChild className="w-full">
                     <Link to="/trainer">Go to Portal</Link>
                   </Button>
