@@ -148,7 +148,6 @@ export default function StudentProfile() {
         prev ? { ...prev, display_name: trimmed, is_profile_active: true } : prev
       );
       setEditing(false);
-      generateRoadmap();
     } catch (err: any) {
       setNameError(err.message || "Failed to save name");
     } finally {
@@ -272,6 +271,7 @@ Rules:
         .from("students")
         .update({ roadmap: parsed })
         .eq("id", student.id);
+      console.log("Roadmap saved to Supabase successfully");
 
       setRoadmap(parsed);
     } catch (err) {
