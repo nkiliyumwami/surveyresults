@@ -165,7 +165,6 @@ export default function StudentProfile() {
     setOtpError("");
     const { error } = await supabase.auth.signInWithOtp({
       email: trimmed,
-      options: { shouldCreateUser: false },
     });
     setOtpLoading(false);
     if (error) {
@@ -178,11 +177,13 @@ export default function StudentProfile() {
   const verifyOtp = async () => {
     setOtpLoading(true);
     setOtpError("");
-    const { error } = await supabase.auth.verifyOtp({
+    console.log("Verifying OTP:", { email: otpEmail.trim(), token: otpCode.trim(), type: "magiclink" });
+    const { data, error } = await supabase.auth.verifyOtp({
       email: otpEmail.trim(),
       token: otpCode.trim(),
-      type: "magiclink",
+      type: "email",
     });
+    console.log("OTP response:", data, error);
     setOtpLoading(false);
     if (error) {
       setOtpError("Invalid or expired code. Please try again.");
