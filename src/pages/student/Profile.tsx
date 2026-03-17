@@ -16,6 +16,7 @@ import {
   Lock,
   Sparkles,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 
 const STRIPE_PAYMENT_URL = "https://buy.stripe.com/YOUR_STRIPE_LINK_HERE";
@@ -43,6 +44,7 @@ interface StudentData {
   profile_image_url: string | null;
   is_profile_active: boolean;
   student_certifications: { name: string; credly_url: string }[] | null;
+  roadmap: any;
 }
 
 interface MentorData {
@@ -72,6 +74,11 @@ export default function StudentProfile() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
 
+  // Roadmap state
+  const [roadmap, setRoadmap] = useState<any>(null);
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapError, setRoadmapError] = useState("");
+
   // Seat application modal state
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [studyGoal, setStudyGoal] = useState("");
@@ -85,7 +92,7 @@ export default function StudentProfile() {
       supabase
         .from("students")
         .select(
-          "id, full_name, display_name, email, country, journey_level, target_role, weekly_hours, certifications, profile_image_url, is_profile_active, student_certifications"
+          "id, full_name, display_name, email, country, journey_level, target_role, weekly_hours, certifications, profile_image_url, is_profile_active, student_certifications, roadmap"
         )
         .eq("id", id)
         .maybeSingle(),
@@ -97,6 +104,9 @@ export default function StudentProfile() {
     } else {
       setStudent(studentRes.data);
       setEditName(studentRes.data.display_name || studentRes.data.full_name || "");
+      if (studentRes.data.roadmap) {
+        setRoadmap(studentRes.data.roadmap);
+      }
     }
 
     if (mentorRes.data && Array.isArray(mentorRes.data) && mentorRes.data.length > 0) {
@@ -138,6 +148,7 @@ export default function StudentProfile() {
         prev ? { ...prev, display_name: trimmed, is_profile_active: true } : prev
       );
       setEditing(false);
+      generateRoadmap();
     } catch (err: any) {
       setNameError(err.message || "Failed to save name");
     } finally {
@@ -180,7 +191,94 @@ export default function StudentProfile() {
       return;
     }
     setOtpVerified(true);
-    setOtpModalOpen(false);
+  };
+
+  const generateRoadmap = async () => {
+    if (!student) return;
+    setRoadmapLoading(true);
+    setRoadmapError("");
+
+    const prompt = `You are a cybersecurity career coach. Generate a detailed personalized learning roadmap for this student:
+
+Name: ${student.display_name || student.full_name}
+Target Role: ${student.target_role}
+Current Level: ${student.journey_level}
+Weekly Hours Available: ${student.weekly_hours}
+Certifications Pursuing: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
+Country: ${student.country}
+
+Generate a roadmap as a JSON object with this exact structure:
+{
+  "generated_at": "today's date YYYY-MM-DD",
+  "target_role": "...",
+  "target_cert": "the most relevant cert from their list",
+  "total_weeks": number,
+  "weekly_hours": number,
+  "summary": "2 sentence personalized summary of their path",
+  "phases": [
+    {
+      "phase": 1,
+      "title": "Phase title",
+      "duration_weeks": number,
+      "topics": ["topic1", "topic2", "topic3"],
+      "resources": [
+        {
+          "type": "youtube|udemy|platform|book|free",
+          "title": "Resource title",
+          "url": "actual real URL",
+          "free": true|false,
+          "estimated_hours": number,
+          "description": "one line description"
+        }
+      ],
+      "completed": false
+    }
+  ],
+  "cert_readiness": 0
+}
+
+Rules:
+- Generate 3-5 phases based on their level and weekly hours
+- Calculate total_weeks realistically based on weekly_hours
+- Include real URLs for resources (Professor Messer, TryHackMe, HackTheBox, Udemy, YouTube, Coursera, SANS, etc)
+- Mix free and paid resources, prioritize free ones
+- Tailor content specifically to their target role and cert
+- Return ONLY the JSON object, no markdown, no explanation`;
+
+    try {
+      const response = await fetch("/api/generate-roadmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json();
+      const text = data.result || "";
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+
+      await supabase
+        .from("students")
+        .update({ roadmap: parsed })
+        .eq("id", student.id);
+
+      setRoadmap(parsed);
+    } catch {
+      setRoadmapError("Failed to generate roadmap. Please try again.");
+    } finally {
+      setRoadmapLoading(false);
+    }
+  };
+
+  const updatePhaseProgress = async (phaseIndex: number, completed: boolean) => {
+    if (!roadmap || !student) return;
+    const updatedPhases = [...roadmap.phases];
+    updatedPhases[phaseIndex].completed = completed;
+    const completedCount = updatedPhases.filter((p: any) => p.completed).length;
+    const cert_readiness = Math.round((completedCount / updatedPhases.length) * 100);
+    const updatedRoadmap = { ...roadmap, phases: updatedPhases, cert_readiness };
+    setRoadmap(updatedRoadmap);
+    await supabase.from("students").update({ roadmap: updatedRoadmap }).eq("id", student.id);
   };
 
   const handleSeatApplication = () => {
@@ -580,6 +678,158 @@ export default function StudentProfile() {
                     </Button>
                   </div>
                 </div>
+              </div>
+
+              {/* Learning Roadmap */}
+              <div className="card-cyber p-6 sm:p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    My Learning Roadmap
+                  </h2>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={generateRoadmap}
+                    disabled={roadmapLoading}
+                  >
+                    {roadmapLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    Regenerate
+                  </Button>
+                </div>
+
+                {roadmapLoading && (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    <p className="text-sm text-muted-foreground">Generating your personalized roadmap...</p>
+                  </div>
+                )}
+
+                {roadmapError && !roadmapLoading && (
+                  <p className="text-sm text-red-400">{roadmapError}</p>
+                )}
+
+                {roadmap && !roadmapLoading && (
+                  <div className="space-y-5">
+                    {/* Summary Card */}
+                    <div className="p-4 rounded-lg border border-border/50 bg-muted/20 space-y-3">
+                      <p className="text-sm text-foreground">{roadmap.summary}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Target Role</p>
+                          <p className="text-foreground font-medium">{roadmap.target_role}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Target Cert</p>
+                          <p className="text-foreground font-medium">{roadmap.target_cert}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Total Weeks</p>
+                          <p className="text-foreground font-medium">{roadmap.total_weeks}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Generated</p>
+                          <p className="text-foreground font-medium">{roadmap.generated_at}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cert Readiness Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Cert Readiness</span>
+                        <span className="font-mono font-bold text-primary">{roadmap.cert_readiness}%</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-muted/40 border border-border/30 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-500"
+                          style={{ width: `${roadmap.cert_readiness}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Phases */}
+                    {roadmap.phases?.map((phase: any, i: number) => (
+                      <div
+                        key={i}
+                        className={`p-4 rounded-lg border space-y-3 ${
+                          phase.completed
+                            ? "border-green-500/30 bg-green-500/5"
+                            : "border-border/50 bg-muted/10"
+                        }`}
+                      >
+                        {/* Phase Header */}
+                        <div className="flex items-start gap-3">
+                          <label className="flex items-center mt-0.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={phase.completed || false}
+                              onChange={(e) => updatePhaseProgress(i, e.target.checked)}
+                              className="h-4 w-4 rounded border-border bg-background accent-[hsl(var(--primary))]"
+                            />
+                          </label>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+                                Phase {phase.phase}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {phase.duration_weeks} weeks
+                              </span>
+                              {phase.completed && (
+                                <Check className="h-4 w-4 text-green-500" />
+                              )}
+                            </div>
+                            <h3 className={`text-sm font-semibold mt-1 ${phase.completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                              {phase.title}
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* Topics */}
+                        <div className="flex flex-wrap gap-1.5 ml-7">
+                          {phase.topics?.map((topic: string, j: number) => (
+                            <span
+                              key={j}
+                              className="inline-flex px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20"
+                            >
+                              {topic}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Resources */}
+                        {phase.resources && phase.resources.length > 0 && (
+                          <div className="ml-7 space-y-1.5">
+                            {phase.resources.map((res: any, k: number) => (
+                              <a
+                                key={k}
+                                href={res.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group"
+                              >
+                                <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-50 group-hover:opacity-100" />
+                                <span className="truncate">{res.title}</span>
+                                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono ${res.free ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-cyber-amber/10 text-cyber-amber border border-cyber-amber/20"}`}>
+                                  {res.free ? "FREE" : "PAID"}
+                                </span>
+                                <span className="flex-shrink-0 text-[10px] text-muted-foreground">
+                                  {res.estimated_hours}h
+                                </span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
