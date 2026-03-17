@@ -198,59 +198,64 @@ export default function StudentProfile() {
     setRoadmapLoading(true);
     setRoadmapError("");
 
-    const prompt = `You are a cybersecurity career coach. Generate a detailed personalized learning roadmap for this student:
+    const prompt = `You are a cybersecurity career coach. Generate a structured learning roadmap for this specific student. You must use ONLY the data provided below — do not invent or assume anything.
 
-Name: ${student.display_name || student.full_name}
-Target Role: ${student.target_role}
-Current Level: ${student.journey_level}
-Weekly Hours Available: ${student.weekly_hours}
-Certifications Pursuing: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
-Country: ${student.country}
+STUDENT PROFILE:
+- Name: ${student.display_name || student.full_name}
+- Target Role: ${student.target_role}
+- Current Level: ${student.journey_level}
+- Weekly Hours Available: ${student.weekly_hours}
+- Certifications Pursuing: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
+- Country: ${student.country}
 
-Generate a roadmap as a JSON object with this exact structure:
+STRICT RULES FOR ROADMAP GENERATION:
+1. Number of phases:
+   - Beginner level → exactly 4 phases
+   - Intermediate level → exactly 3 phases
+   - Advanced level → exactly 2 phases
+2. Phase duration must be calculated using weekly_hours — more hours = shorter timeline
+3. Every resource URL must be a search URL, never a direct course link:
+   - Udemy: https://www.udemy.com/courses/search/?q=KEYWORDS
+   - YouTube: https://www.youtube.com/results?search_query=KEYWORDS
+   - TryHackMe: https://tryhackme.com/hacktivities?tab=search&value=KEYWORDS
+   - HackTheBox: https://app.hackthebox.com/machines
+   - Coursera: https://www.coursera.org/search?query=KEYWORDS
+   - LinkedIn Learning: https://www.linkedin.com/learning/search?keywords=KEYWORDS
+   Replace KEYWORDS with relevant search terms using + between words
+4. Resources must be directly relevant to the target role and certifications listed
+5. Mix free and paid resources, prioritize free ones
+6. The roadmap must be tailored specifically to the target role: ${student.target_role}
+7. The certifications to focus on are: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
+
+Return ONLY a valid JSON object with this exact structure, no markdown, no explanation, no extra text:
 {
-  "generated_at": "today's date YYYY-MM-DD",
-  "target_role": "...",
+  "generated_at": "${new Date().toISOString().split('T')[0]}",
+  "target_role": "${student.target_role}",
   "target_cert": "the most relevant cert from their list",
-  "total_weeks": number,
-  "weekly_hours": number,
-  "summary": "2 sentence personalized summary of their path",
+  "total_weeks": <calculated from weekly_hours and content volume>,
+  "weekly_hours": ${student.weekly_hours},
+  "summary": "2 sentence personalized summary mentioning their name, target role, current level, and realistic timeline",
   "phases": [
     {
       "phase": 1,
-      "title": "Phase title",
-      "duration_weeks": number,
+      "title": "phase title relevant to target role",
+      "duration_weeks": <number>,
       "topics": ["topic1", "topic2", "topic3"],
       "resources": [
         {
-          "type": "youtube|udemy|platform|book|free",
-          "title": "Resource title",
-          "url": "a working search URL (see URL rules below)",
+          "type": "youtube|udemy|platform|coursera|linkedin",
+          "title": "descriptive resource title",
+          "url": "search URL as specified above",
           "free": true|false,
-          "estimated_hours": number,
-          "description": "one line description"
+          "estimated_hours": <number>,
+          "description": "one line description of what this resource covers"
         }
       ],
       "completed": false
     }
   ],
   "cert_readiness": 0
-}
-
-Rules:
-- Generate 3-5 phases based on their level and weekly hours
-- Calculate total_weeks realistically based on weekly_hours
-- url: a working search URL for the resource, not a direct course link. Use these formats:
-  - For udemy: https://www.udemy.com/courses/search/?q=TOPIC+KEYWORDS
-  - For youtube: https://www.youtube.com/results?search_query=TOPIC+KEYWORDS
-  - For tryhackme: https://tryhackme.com/hacktivities?tab=search&value=TOPIC
-  - For hackthebox: https://app.hackthebox.com/machines
-  - For coursera: https://www.coursera.org/search?query=TOPIC+KEYWORDS
-  - For linkedin: https://www.linkedin.com/learning/search?keywords=TOPIC+KEYWORDS
-  Replace TOPIC+KEYWORDS with relevant search terms for the specific resource topic, using + between words
-- Mix free and paid resources, prioritize free ones
-- Tailor content specifically to their target role and cert
-- Return ONLY the JSON object, no markdown, no explanation`;
+}`;
 
     try {
       const response = await fetch("/api/generate-roadmap", {
