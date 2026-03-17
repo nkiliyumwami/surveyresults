@@ -191,6 +191,7 @@ export default function StudentProfile() {
       return;
     }
     setOtpVerified(true);
+    await supabase.auth.signOut();
   };
 
   const generateRoadmap = async () => {
