@@ -194,8 +194,8 @@ export default function StudentProfile() {
   };
 
   const generateRoadmap = async () => {
-    if (!student) return;
-    console.log("generateRoadmap called", { studentId: student?.id, targetRole: student?.target_role });
+    if (!student || !id) return;
+    console.log("generateRoadmap called", { studentId: id, targetRole: student?.target_role });
     setRoadmapLoading(true);
     setRoadmapError("");
 
@@ -273,11 +273,21 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
       const parsed = JSON.parse(clean);
       console.log("Parsed roadmap:", parsed);
 
-      const { error: saveError } = await supabase
+      // Use id from URL params (stable) rather than student.id from state closure
+      const { data: saveData, error: saveError } = await supabase
         .from("students")
         .update({ roadmap: parsed })
-        .eq("id", student.id);
-      console.log("Roadmap save result:", saveError ? `ERROR: ${saveError.message}` : "saved successfully");
+        .eq("id", id)
+        .select("id, roadmap")
+        .maybeSingle();
+      console.log("Roadmap save result:", saveError ? `ERROR: ${saveError.message}` : "saved successfully", "rows returned:", saveData ? 1 : 0);
+
+      if (saveError) {
+        console.error("Supabase update error:", saveError);
+      }
+      if (!saveData) {
+        console.warn("Roadmap update matched 0 rows — possible RLS issue. Student ID:", id);
+      }
 
       setRoadmap(parsed);
     } catch (err) {
@@ -289,14 +299,14 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
   };
 
   const updatePhaseProgress = async (phaseIndex: number, completed: boolean) => {
-    if (!roadmap || !student) return;
+    if (!roadmap || !id) return;
     const updatedPhases = [...roadmap.phases];
     updatedPhases[phaseIndex].completed = completed;
     const completedCount = updatedPhases.filter((p: any) => p.completed).length;
     const cert_readiness = Math.round((completedCount / updatedPhases.length) * 100);
     const updatedRoadmap = { ...roadmap, phases: updatedPhases, cert_readiness };
     setRoadmap(updatedRoadmap);
-    await supabase.from("students").update({ roadmap: updatedRoadmap }).eq("id", student.id);
+    await supabase.from("students").update({ roadmap: updatedRoadmap }).eq("id", id);
   };
 
   const handleSeatApplication = () => {
