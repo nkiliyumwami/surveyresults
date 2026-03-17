@@ -106,6 +106,8 @@ export default function StudentProfile() {
       setEditName(studentRes.data.display_name || studentRes.data.full_name || "");
       if (studentRes.data.roadmap) {
         setRoadmap(studentRes.data.roadmap);
+      } else {
+        generateRoadmap();
       }
     }
 
@@ -195,6 +197,7 @@ export default function StudentProfile() {
 
   const generateRoadmap = async () => {
     if (!student) return;
+    console.log("generateRoadmap called", { studentId: student?.id, targetRole: student?.target_role });
     setRoadmapLoading(true);
     setRoadmapError("");
 
@@ -258,11 +261,14 @@ Rules:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
+      console.log("OpenRouter response status:", response.status);
 
       const data = await response.json();
+      console.log("OpenRouter data:", JSON.stringify(data));
       const text = data.result || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
+      console.log("Parsed roadmap:", parsed);
 
       await supabase
         .from("students")
@@ -270,7 +276,8 @@ Rules:
         .eq("id", student.id);
 
       setRoadmap(parsed);
-    } catch {
+    } catch (err) {
+      console.log("generateRoadmap error:", err);
       setRoadmapError("Failed to generate roadmap. Please try again.");
     } finally {
       setRoadmapLoading(false);
