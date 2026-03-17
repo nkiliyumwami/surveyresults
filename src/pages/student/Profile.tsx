@@ -648,7 +648,7 @@ export default function StudentProfile() {
               </p>
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
-                  6-digit code
+                  8-digit code
                 </label>
                 <input
                   type="text"
