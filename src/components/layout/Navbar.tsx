@@ -1,46 +1,29 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Shield, LogIn, LayoutDashboard, Sparkles } from "lucide-react";
+import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle, Terminal, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
-  const [isTrainer, setIsTrainer] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-
-  const checkIsTrainer = async (userId: string) => {
-    const { data } = await supabase
-      .from("trainer_profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    setIsTrainer(!!data);
-  };
 
   // Check auth state
   useEffect(() => {
     const checkAuth = async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        await checkIsTrainer(data.session.user.id);
-      } else {
-        setIsTrainer(false);
-      }
+      setIsLoggedIn(!!data.session);
     };
 
     checkAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_OUT" || !session) {
-          setIsTrainer(false);
-        } else if (event === "SIGNED_IN" && session) {
-          await checkIsTrainer(session.user.id);
-        }
+      (_event, session) => {
+        setIsLoggedIn(!!session);
       }
     );
 
@@ -66,6 +49,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/dashboard/students", label: "Student Dashboard", icon: LayoutDashboard },
+    { href: "/portal", label: "OpenClaw", icon: Terminal },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -117,7 +101,14 @@ export function Navbar() {
               </Link>
             </Button>
 
-            {isTrainer ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to="/portal/login" className="flex items-center gap-1.5">
+                <UserCircle className="h-4 w-4" />
+                Student Portal
+              </Link>
+            </Button>
+
+            {isLoggedIn ? (
               <Button asChild size="sm">
                 <Link to="/trainer">
                   Go to Portal
@@ -183,7 +174,14 @@ export function Navbar() {
                   </Link>
                 </Button>
 
-                {isTrainer ? (
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
+                    <UserCircle className="h-4 w-4" />
+                    Student Portal
+                  </Link>
+                </Button>
+
+                {isLoggedIn ? (
                   <Button asChild className="w-full">
                     <Link to="/trainer">Go to Portal</Link>
                   </Button>

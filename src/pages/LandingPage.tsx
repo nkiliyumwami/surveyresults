@@ -209,7 +209,7 @@ export default function LandingPage() {
                 onClick={() => setPortalOpen(true)}
               >
                 <UserCircle className="mr-2 h-5 w-5" />
-                Student Profile
+                Manage My Profile
               </Button>
 
               <Button
