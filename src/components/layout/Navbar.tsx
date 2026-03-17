@@ -101,9 +101,9 @@ export function Navbar() {
             </Button>
 
             <Button asChild size="sm" variant="outline">
-              <Link to="/portal/login" className="flex items-center gap-1.5">
+              <Link to="/portal" className="flex items-center gap-1.5">
                 <UserCircle className="h-4 w-4" />
-                My Profile
+                Kralisa
               </Link>
             </Button>
 
@@ -174,9 +174,9 @@ export function Navbar() {
                 </Button>
 
                 <Button asChild variant="outline" className="w-full">
-                  <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
+                  <Link to="/portal" className="flex items-center justify-center gap-1.5">
                     <UserCircle className="h-4 w-4" />
-                    My Profile
+                    Kralisa
                   </Link>
                 </Button>
 
