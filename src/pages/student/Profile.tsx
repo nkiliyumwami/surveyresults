@@ -181,7 +181,7 @@ export default function StudentProfile() {
     const { error } = await supabase.auth.verifyOtp({
       email: otpEmail.trim(),
       token: otpCode.trim(),
-      type: "magiclink",
+      type: "email",
     });
     setOtpLoading(false);
     if (error) {
