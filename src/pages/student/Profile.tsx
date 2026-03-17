@@ -654,11 +654,11 @@ export default function StudentProfile() {
                   type="text"
                   value={otpCode}
                   onChange={(e) => {
-                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8));
                     setOtpError("");
                   }}
                   placeholder="000000"
-                  maxLength={6}
+                  maxLength={8}
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground tracking-widest text-center font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
