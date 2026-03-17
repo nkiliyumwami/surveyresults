@@ -458,6 +458,15 @@ interface AssignedStudentCardProps {
   student: StudentRow;
   assignment: AssignmentRow;
   onUpdated: () => void;
+  trainers: TrainerForMatching[];
+  reassigningStudentId: string | null;
+  reassignMatches: MatchScore[];
+  reassignLoading: boolean;
+  reassignSelectedTrainer: string;
+  onReassignClick: (student: StudentRow) => void;
+  onReassignCancel: () => void;
+  onReassign: (studentId: string, newTrainerId: string) => void;
+  onReassignTrainerChange: (trainerId: string) => void;
 }
 
 const EMPTY_CERT: CertEntry = { name: "", credly_url: "" };
@@ -676,7 +685,7 @@ function NameOverrideEditor({
   );
 }
 
-function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudentCardProps) {
+function AssignedStudentCard({ student, assignment, onUpdated, trainers, reassigningStudentId, reassignMatches, reassignLoading, reassignSelectedTrainer, onReassignClick, onReassignCancel, onReassign, onReassignTrainerChange }: AssignedStudentCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [featureBusy, setFeatureBusy] = useState(false);
 
@@ -785,6 +794,16 @@ function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudent
                 Assigned {new Date(assignment.created_at).toLocaleDateString()}
               </p>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onReassignClick(student)}
+              disabled={reassigningStudentId === student.id && reassignLoading}
+              className="gap-1"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${reassigningStudentId === student.id && reassignLoading ? "animate-spin" : ""}`} />
+              Reassign
+            </Button>
           </div>
         </div>
 
@@ -841,6 +860,84 @@ function AssignedStudentCard({ student, assignment, onUpdated }: AssignedStudent
             )}
           </motion.div>
         )}
+
+        {/* Reassignment Panel */}
+        {reassigningStudentId === student.id && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-foreground">Reassign Student</h4>
+              <Button size="sm" variant="ghost" onClick={onReassignCancel} className="h-7 w-7 p-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Currently assigned to: <strong className="text-foreground">{assignment.trainer?.full_name || "Unknown"}</strong>
+            </p>
+
+            {/* Top matches */}
+            {reassignMatches.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Top Matches:</p>
+                {reassignMatches.map((match, i) => (
+                  <div
+                    key={match.trainerId}
+                    className={`flex items-center justify-between p-2 rounded-md border ${getScoreBg(match.totalScore)}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${getScoreColor(match.totalScore)}`}>#{i + 1}</span>
+                      <span className="text-sm font-medium text-foreground">{match.trainerName}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {match.totalScore}pts
+                      </Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => onReassign(student.id, match.trainerId)}
+                      disabled={reassignLoading || match.trainerId === assignment.trainer_id}
+                      className="gap-1 h-7 text-xs"
+                    >
+                      {reassignLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      {match.trainerId === assignment.trainer_id ? "Current" : "Assign"}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Manual selection */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Or select manually:</p>
+              <div className="flex gap-2">
+                <select
+                  value={reassignSelectedTrainer}
+                  onChange={(e) => onReassignTrainerChange(e.target.value)}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="">Select a trainer...</option>
+                  {trainers.map((t) => (
+                    <option key={t.id} value={t.id} disabled={t.id === assignment.trainer_id}>
+                      {t.full_name || t.id}{t.id === assignment.trainer_id ? " (current)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={() => onReassign(student.id, reassignSelectedTrainer)}
+                  disabled={reassignLoading || !reassignSelectedTrainer}
+                  className="gap-1"
+                >
+                  {reassignLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </CardContent>
     </Card>
   );
@@ -858,6 +955,76 @@ export default function Assignments() {
   const [trainerCounts, setTrainerCounts] = useState<Map<string, number>>(new Map());
   const [activeTab, setActiveTab] = useState<"unassigned" | "assigned">("unassigned");
   const [assignedSearch, setAssignedSearch] = useState("");
+
+  // Reassignment state
+  const [reassigningStudentId, setReassigningStudentId] = useState<string | null>(null);
+  const [reassignMatches, setReassignMatches] = useState<MatchScore[]>([]);
+  const [reassignLoading, setReassignLoading] = useState(false);
+  const [reassignSelectedTrainer, setReassignSelectedTrainer] = useState("");
+
+  const handleReassignClick = async (student: StudentRow) => {
+    setReassigningStudentId(student.id);
+    setReassignMatches([]);
+    setReassignSelectedTrainer("");
+    setReassignLoading(true);
+    try {
+      const studentData: StudentForMatching = {
+        id: student.id,
+        full_name: student.full_name,
+        target_role: student.target_role,
+        weekly_hours: student.weekly_hours,
+        journey_level: student.journey_level,
+        roadblock: student.roadblock,
+        certifications: student.certifications,
+      };
+      const results = await getBestMatches(studentData, trainers, 3);
+      setReassignMatches(results);
+    } catch (err) {
+      console.error("Reassign match error:", err);
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  const handleReassign = async (studentId: string, newTrainerId: string) => {
+    if (!newTrainerId) return;
+    setReassignLoading(true);
+    try {
+      const { error } = await supabase
+        .from("assignments")
+        .update({ trainer_id: newTrainerId, updated_at: new Date().toISOString() })
+        .eq("student_id", studentId)
+        .eq("status", "active");
+
+      if (error) throw error;
+
+      toast({
+        title: "Student Reassigned",
+        description: "The student has been reassigned to a new trainer.",
+      });
+
+      setReassigningStudentId(null);
+      setReassignMatches([]);
+      setReassignSelectedTrainer("");
+
+      await loadData();
+    } catch (err: any) {
+      console.error("Reassign error:", err);
+      toast({
+        title: "Reassignment Failed",
+        description: err.message || "Could not reassign student.",
+        variant: "destructive",
+      });
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  const handleReassignCancel = () => {
+    setReassigningStudentId(null);
+    setReassignMatches([]);
+    setReassignSelectedTrainer("");
+  };
 
   // Bulk assignment state
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -1392,6 +1559,15 @@ export default function Assignments() {
                         student={student}
                         assignment={assignment}
                         onUpdated={loadData}
+                        trainers={trainers}
+                        reassigningStudentId={reassigningStudentId}
+                        reassignMatches={reassigningStudentId === student.id ? reassignMatches : []}
+                        reassignLoading={reassigningStudentId === student.id && reassignLoading}
+                        reassignSelectedTrainer={reassigningStudentId === student.id ? reassignSelectedTrainer : ""}
+                        onReassignClick={handleReassignClick}
+                        onReassignCancel={handleReassignCancel}
+                        onReassign={handleReassign}
+                        onReassignTrainerChange={setReassignSelectedTrainer}
                       />
                     ))}
                 </>
