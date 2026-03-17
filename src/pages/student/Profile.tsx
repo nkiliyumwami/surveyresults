@@ -102,6 +102,7 @@ export default function StudentProfile() {
     if (studentRes.error || !studentRes.data) {
       setNotFound(true);
     } else {
+      console.log("fetchData: student loaded, roadmap exists:", !!studentRes.data.roadmap);
       setStudent(studentRes.data);
       setEditName(studentRes.data.display_name || studentRes.data.full_name || "");
       if (studentRes.data.roadmap) {
@@ -272,11 +273,11 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
       const parsed = JSON.parse(clean);
       console.log("Parsed roadmap:", parsed);
 
-      await supabase
+      const { error: saveError } = await supabase
         .from("students")
         .update({ roadmap: parsed })
         .eq("id", student.id);
-      console.log("Roadmap saved to Supabase successfully");
+      console.log("Roadmap save result:", saveError ? `ERROR: ${saveError.message}` : "saved successfully");
 
       setRoadmap(parsed);
     } catch (err) {
