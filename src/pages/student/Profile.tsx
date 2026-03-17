@@ -689,26 +689,10 @@ Rules:
 
               {/* Learning Roadmap */}
               <div className="card-cyber p-6 sm:p-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-primary" />
-                    My Learning Roadmap
-                  </h2>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={generateRoadmap}
-                    disabled={roadmapLoading}
-                  >
-                    {roadmapLoading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    )}
-                    Regenerate
-                  </Button>
-                </div>
+                <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  My Learning Roadmap
+                </h2>
 
                 {roadmapLoading && (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
