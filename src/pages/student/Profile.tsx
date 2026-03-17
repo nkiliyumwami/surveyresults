@@ -225,7 +225,7 @@ Generate a roadmap as a JSON object with this exact structure:
         {
           "type": "youtube|udemy|platform|book|free",
           "title": "Resource title",
-          "url": "actual real URL",
+          "url": "a working search URL (see URL rules below)",
           "free": true|false,
           "estimated_hours": number,
           "description": "one line description"
@@ -240,7 +240,14 @@ Generate a roadmap as a JSON object with this exact structure:
 Rules:
 - Generate 3-5 phases based on their level and weekly hours
 - Calculate total_weeks realistically based on weekly_hours
-- Include real URLs for resources (Professor Messer, TryHackMe, HackTheBox, Udemy, YouTube, Coursera, SANS, etc)
+- url: a working search URL for the resource, not a direct course link. Use these formats:
+  - For udemy: https://www.udemy.com/courses/search/?q=TOPIC+KEYWORDS
+  - For youtube: https://www.youtube.com/results?search_query=TOPIC+KEYWORDS
+  - For tryhackme: https://tryhackme.com/hacktivities?tab=search&value=TOPIC
+  - For hackthebox: https://app.hackthebox.com/machines
+  - For coursera: https://www.coursera.org/search?query=TOPIC+KEYWORDS
+  - For linkedin: https://www.linkedin.com/learning/search?keywords=TOPIC+KEYWORDS
+  Replace TOPIC+KEYWORDS with relevant search terms for the specific resource topic, using + between words
 - Mix free and paid resources, prioritize free ones
 - Tailor content specifically to their target role and cert
 - Return ONLY the JSON object, no markdown, no explanation`;
