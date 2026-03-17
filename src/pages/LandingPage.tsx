@@ -93,15 +93,6 @@ export default function LandingPage() {
     }
   }
 
-  // Auto-open portal modal if navigated with ?openPortal=true
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("openPortal") === "true") {
-      setPortalOpen(true);
-      window.history.replaceState({}, "", "/");
-    }
-  }, []);
-
   useEffect(() => {
     async function fetchStats() {
       try {
@@ -209,6 +200,16 @@ export default function LandingPage() {
                   Join our community
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto text-base px-8 py-6"
+                onClick={() => setPortalOpen(true)}
+              >
+                <UserCircle className="mr-2 h-5 w-5" />
+                Student Profile
               </Button>
 
               <Button

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Shield, LogIn, LayoutDashboard, UserCircle, Terminal, Sparkles } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X, Shield, LogIn, LayoutDashboard, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   const checkIsTrainer = async (userId: string) => {
     const { data } = await supabase
@@ -118,11 +117,6 @@ export function Navbar() {
               </Link>
             </Button>
 
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => navigate("/?openPortal=true")}>
-              <UserCircle className="h-4 w-4" />
-              Student Profile
-            </Button>
-
             {isTrainer ? (
               <Button asChild size="sm">
                 <Link to="/trainer">
@@ -187,11 +181,6 @@ export function Navbar() {
                     <Sparkles className="h-4 w-4" />
                     Join Beta
                   </Link>
-                </Button>
-
-                <Button variant="outline" className="w-full gap-1.5" onClick={() => { navigate("/?openPortal=true"); setMobileMenuOpen(false); }}>
-                  <UserCircle className="h-4 w-4" />
-                  Student Profile
                 </Button>
 
                 {isTrainer ? (
