@@ -49,7 +49,6 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/dashboard/students", label: "Student Dashboard", icon: LayoutDashboard },
-    { href: "/portal", label: "OpenClaw", icon: Terminal },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -104,7 +103,7 @@ export function Navbar() {
             <Button asChild size="sm" variant="outline">
               <Link to="/portal/login" className="flex items-center gap-1.5">
                 <UserCircle className="h-4 w-4" />
-                Student Portal
+                My Profile
               </Link>
             </Button>
 
@@ -177,7 +176,7 @@ export function Navbar() {
                 <Button asChild variant="outline" className="w-full">
                   <Link to="/portal/login" className="flex items-center justify-center gap-1.5">
                     <UserCircle className="h-4 w-4" />
-                    Student Portal
+                    My Profile
                   </Link>
                 </Button>
 
