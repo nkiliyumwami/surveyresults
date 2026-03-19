@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -55,6 +55,7 @@ interface MentorData {
 
 export default function StudentProfile() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const [student, setStudent] = useState<StudentData | null>(null);
   const [mentor, setMentor] = useState<MentorData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +117,12 @@ export default function StudentProfile() {
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (location.state?.prefillEmail) {
+      setOtpEmail(location.state.prefillEmail);
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();

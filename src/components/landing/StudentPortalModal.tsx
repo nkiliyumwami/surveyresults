@@ -92,7 +92,7 @@ export function StudentPortalModal({ open, onOpenChange }: StudentPortalModalPro
         // Auto-redirect after a brief moment
         setTimeout(() => {
           onOpenChange(false);
-          navigate(`/profile/${student.id}`);
+          navigate(`/student/${student.id}`, { state: { prefillEmail: trimmed } });
         }, 800);
       } else {
         setState({ status: "pending", studentId: student.id, name });
@@ -182,7 +182,7 @@ export function StudentPortalModal({ open, onOpenChange }: StudentPortalModalPro
               className="gap-1.5"
               onClick={() => {
                 onOpenChange(false);
-                navigate(`/profile/${state.studentId}`);
+                navigate(`/student/${state.studentId}`, { state: { prefillEmail: email.trim().toLowerCase() } });
               }}
             >
               <UserCircle className="h-4 w-4" />
