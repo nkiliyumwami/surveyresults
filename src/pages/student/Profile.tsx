@@ -211,23 +211,48 @@ STUDENT PROFILE:
 - Country: ${student.country}
 
 STRICT RULES FOR ROADMAP GENERATION:
+
 1. Number of phases:
    - Beginner level → exactly 4 phases
    - Intermediate level → exactly 3 phases
    - Advanced level → exactly 2 phases
+
 2. Phase duration must be calculated using weekly_hours — more hours = shorter timeline
-3. Every resource URL must be a search URL, never a direct course link:
-   - Udemy: https://www.udemy.com/courses/search/?q=KEYWORDS
+
+3. ALL resources must be FREE. Do not include any paid courses, paid platforms, or paid subscriptions. No Udemy paid courses, no LinkedIn Learning, no Coursera paid tiers.
+
+4. PRIORITY ORDER for resources — always check in this order:
+   a) Official certification body free content FIRST:
+      - Cisco certifications → Cisco Networking Academy: https://www.netacad.com
+      - ISC2 certifications → ISC2 free CC course and candidate resources: https://www.isc2.org/certifications/cc
+      - CompTIA certifications → Professor Messer free study materials: https://www.professormesser.com
+      - EC-Council certifications → EC-Council free intro courses: https://www.eccouncil.org/train-certify/free-cybersecurity-courses/
+      - ISACA certifications → ISACA free student resources: https://www.isaca.org/credentialing/certifications
+   b) Free structured learning platforms:
+      - YouTube: https://www.youtube.com/results?search_query=KEYWORDS
+      - Cybrary free tier: https://www.cybrary.it
+      - SANS Cyber Aces: https://www.sans.org/cyberaces/
+      - Open Security Training: https://opensecuritytraining.info
+   c) Official documentation and free government/nonprofit resources
+
+5. EVERY phase must include at least 1 hands-on practice resource chosen based on target role:
+   - Offensive / Penetration Testing roles → TryHackMe: https://tryhackme.com/hacktivities?tab=search&value=KEYWORDS or Hack The Box: https://app.hackthebox.com/machines
+   - Defensive / SOC / Incident Response roles → Blue Team Labs Online: https://blueteamlabs.online or CyberDefenders: https://cyberdefenders.org
+   - Web Security roles → PortSwigger Web Academy (completely free): https://portswigger.net/web-security
+   - Networking roles → Cisco Packet Tracer labs via Netacad: https://www.netacad.com/courses/packet-tracer
+   - GRC / Audit roles → ISACA case studies and free audit frameworks: https://www.isaca.org/resources
+
+6. Every resource URL must be a search URL or direct free platform URL, never a direct paid course link:
    - YouTube: https://www.youtube.com/results?search_query=KEYWORDS
    - TryHackMe: https://tryhackme.com/hacktivities?tab=search&value=KEYWORDS
    - HackTheBox: https://app.hackthebox.com/machines
-   - Coursera: https://www.coursera.org/search?query=KEYWORDS
-   - LinkedIn Learning: https://www.linkedin.com/learning/search?keywords=KEYWORDS
    Replace KEYWORDS with relevant search terms using + between words
-4. Resources must be directly relevant to the target role and certifications listed
-5. Mix free and paid resources, prioritize free ones
-6. The roadmap must be tailored specifically to the target role: ${student.target_role}
-7. The certifications to focus on are: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
+
+7. Resources must be directly relevant to the target role and certifications listed
+
+8. The roadmap must be tailored specifically to the target role: ${student.target_role}
+
+9. The certifications to focus on are: ${Array.isArray(student.certifications) ? student.certifications.join(", ") : student.certifications}
 
 Return ONLY a valid JSON object with this exact structure, no markdown, no explanation, no extra text:
 {
@@ -245,10 +270,10 @@ Return ONLY a valid JSON object with this exact structure, no markdown, no expla
       "topics": ["topic1", "topic2", "topic3"],
       "resources": [
         {
-          "type": "youtube|udemy|platform|coursera|linkedin",
+          "type": "youtube|platform|certification-body|practice",
           "title": "descriptive resource title",
-          "url": "search URL as specified above",
-          "free": true|false,
+          "url": "search URL or free platform URL as specified above",
+          "free": true,
           "estimated_hours": <number>,
           "description": "one line description of what this resource covers"
         }
