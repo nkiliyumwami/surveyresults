@@ -975,7 +975,7 @@ function PipelineStatusWidget() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch("/api/pipeline/status");
+      const res = await fetch("https://cybermentor.aikigali.com/api/pipeline/status");
       const data = await res.json();
       setStatus(data);
     } catch {
