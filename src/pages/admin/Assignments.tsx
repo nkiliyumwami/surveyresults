@@ -972,14 +972,23 @@ function relativeTime(iso: string): string {
 function PipelineStatusWidget() {
   const [status, setStatus] = useState<PipelineStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch("https://cybermentor.aikigali.com/api/pipeline/status");
+      const res = await fetch("https://cybermentor.aikigali.com/api/pipeline/status", {
+        method: "GET",
+        headers: { "Accept": "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
       const data = await res.json();
       setStatus(data);
-    } catch {
+      setFetchError(null);
+    } catch (err: any) {
       setStatus(null);
+      setFetchError(err.message || "Failed to fetch pipeline status");
     } finally {
       setLoading(false);
     }
@@ -1003,7 +1012,26 @@ function PipelineStatusWidget() {
     );
   }
 
-  if (!status) return null;
+  if (!status) {
+    if (fetchError) {
+      return (
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+          <AlertOctagon className="h-4 w-4 text-red-400 flex-shrink-0" />
+          <span className="text-sm text-red-400">{fetchError}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setLoading(true); fetchStatus(); }}
+            className="ml-auto gap-1.5 text-xs"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <motion.div
