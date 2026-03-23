@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award, Search, Plus, X, BadgeCheck, Pencil } from "lucide-react";
+import { Users, Sparkles, UserPlus, Check, RefreshCw, ChevronDown, ChevronUp, ExternalLink, Info, Zap, AlertCircle, Trash2, AlertTriangle, Download, Award, Search, Plus, X, BadgeCheck, Pencil, Clock, Activity, AlertOctagon, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -947,6 +947,147 @@ function AssignedStudentCard({ student, assignment, onUpdated, trainers, reassig
 // Main Component
 // ============================================================
 
+// ============================================================
+// Pipeline Status Widget
+// ============================================================
+
+interface PipelineStatus {
+  lastRun: string | null;
+  synced: number;
+  matched: number;
+  escalations: number;
+  error: string | null;
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function PipelineStatusWidget() {
+  const [status, setStatus] = useState<PipelineStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch("/api/pipeline/status");
+      const data = await res.json();
+      setStatus(data);
+    } catch {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isOverdue =
+    status && (!status.lastRun || Date.now() - new Date(status.lastRun).getTime() > 45 * 60_000);
+
+  if (loading) {
+    return (
+      <div className="mb-6 rounded-lg border border-border/50 bg-card/50 p-4 flex items-center gap-3">
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground">Loading pipeline status…</span>
+      </div>
+    );
+  }
+
+  if (!status) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 }}
+      className="mb-6 rounded-lg border border-border/50 bg-card/50 p-4"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+        {/* Last run */}
+        <div className="flex items-center gap-2 text-sm">
+          <Clock className="h-4 w-4 text-primary" />
+          <span className="text-muted-foreground">Last run:</span>
+          <span className="text-foreground font-medium">
+            {status.lastRun ? relativeTime(status.lastRun) : "Never"}
+          </span>
+        </div>
+
+        {/* Synced */}
+        <div className="flex items-center gap-2 text-sm">
+          <Activity className="h-4 w-4 text-primary" />
+          <span className="text-muted-foreground">Synced:</span>
+          <span className="text-foreground font-medium">{status.synced}</span>
+        </div>
+
+        {/* Matched */}
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-muted-foreground">Matched:</span>
+          <span className="text-foreground font-medium">{status.matched}</span>
+        </div>
+
+        {/* Escalations */}
+        <div className="flex items-center gap-2 text-sm">
+          <AlertTriangle
+            className={`h-4 w-4 ${status.escalations > 0 ? "text-amber-400" : "text-primary"}`}
+          />
+          <span className="text-muted-foreground">Escalations:</span>
+          <span
+            className={`font-medium ${status.escalations > 0 ? "text-amber-400" : "text-foreground"}`}
+          >
+            {status.escalations}
+          </span>
+        </div>
+
+        {/* Overdue warning */}
+        {isOverdue && (
+          <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
+            Pipeline overdue
+          </Badge>
+        )}
+
+        {/* Error badge */}
+        {status.error && (
+          <Badge variant="outline" className="text-xs bg-red-500/10 text-red-400 border-red-500/30 max-w-xs truncate">
+            <AlertOctagon className="h-3 w-3 mr-1 flex-shrink-0" />
+            {status.error.length > 80 ? status.error.slice(0, 80) + "…" : status.error}
+          </Badge>
+        )}
+
+        {/* Spacer + Refresh */}
+        <div className="sm:ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setLoading(true);
+              fetchStatus();
+            }}
+            className="gap-1.5 text-xs"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ============================================================
+// Main Component
+// ============================================================
+
 export default function Assignments() {
   const [loading, setLoading] = useState(true);
   const [unassignedStudents, setUnassignedStudents] = useState<StudentRow[]>([]);
@@ -1280,6 +1421,9 @@ export default function Assignments() {
               Match students with trainers based on skills and availability
             </p>
           </motion.div>
+
+          {/* Pipeline Status */}
+          <PipelineStatusWidget />
 
           {/* Stats Cards */}
           <motion.div
