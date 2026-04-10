@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -8,7 +8,7 @@ import {
 import { Tooltip } from "react-tooltip";
 import { scaleLinear } from "d3-scale";
 import { motion } from "framer-motion";
-import { Globe, Users, ShieldCheck } from "lucide-react";
+import { Globe, Users, ShieldCheck, FileText } from "lucide-react";
 
 // Use Natural Earth data which has proper country names
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -163,6 +163,14 @@ interface WorldMapProps {
 
 function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
+  const [ndaCount, setNdaCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec")
+      .then((res) => res.json())
+      .then((data) => setNdaCount(data.count))
+      .catch(() => setNdaCount(-1));
+  }, []);
 
   // Create lookup map from country name to count
   const dataByCountry = data.reduce((acc, item) => {
@@ -216,7 +224,7 @@ function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProp
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"
+        className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6"
       >
         {/* Total Students Card */}
         <div className="relative p-4 rounded-xl bg-slate-900/50 backdrop-blur-sm border border-primary/20 shadow-lg shadow-primary/5">
@@ -259,6 +267,21 @@ function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProp
                 {activeTrainers}
               </div>
               <div className="text-xs text-muted-foreground">Trainers</div>
+            </div>
+          </div>
+        </div>
+
+        {/* NDA Signed Card */}
+        <div className="relative p-4 rounded-xl bg-slate-900/50 backdrop-blur-sm border border-amber-500/20 shadow-lg shadow-amber-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-amber-500" />
+            </div>
+            <div>
+              <div className="text-2xl sm:text-3xl font-bold text-foreground">
+                {ndaCount === null ? "..." : ndaCount === -1 ? "—" : ndaCount}
+              </div>
+              <div className="text-xs text-muted-foreground">NDA Signed</div>
             </div>
           </div>
         </div>
