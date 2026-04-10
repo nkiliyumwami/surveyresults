@@ -126,15 +126,11 @@ export default function LandingPage() {
           .select("*", { count: "exact", head: true })
           .eq("is_active", true);
 
-        // Fetch NDA signed count from Google Apps Script
+        // Fetch NDA signed count via Cloudflare Pages Function proxy
         let ndaCount: number | null = null;
         try {
-          const ndaRes = await fetch(
-            "https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec",
-            { redirect: "follow", mode: "cors" }
-          );
-          const ndaText = await ndaRes.text();
-          const ndaData = JSON.parse(ndaText);
+          const ndaRes = await fetch("/api/nda-count");
+          const ndaData = await ndaRes.json();
           ndaCount = ndaData.count;
         } catch {
           ndaCount = -1;
