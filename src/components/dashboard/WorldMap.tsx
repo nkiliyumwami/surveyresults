@@ -1,4 +1,4 @@
-import { memo, useState, useEffect } from "react";
+import { memo, useState } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -159,28 +159,11 @@ interface WorldMapProps {
   data: CountryData[];
   totalStudents: number;
   activeTrainers: number;
+  ndaSigned: number | null;
 }
 
-function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProps) {
+function WorldMapComponent({ data, totalStudents, activeTrainers, ndaSigned }: WorldMapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
-  const [ndaCount, setNdaCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchNdaCount = async () => {
-      try {
-        const response = await fetch(
-          "https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec",
-          { redirect: "follow", mode: "cors" }
-        );
-        const text = await response.text();
-        const data = JSON.parse(text);
-        setNdaCount(data.count);
-      } catch {
-        setNdaCount(-1);
-      }
-    };
-    fetchNdaCount();
-  }, []);
 
   // Create lookup map from country name to count
   const dataByCountry = data.reduce((acc, item) => {
@@ -289,7 +272,7 @@ function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProp
             </div>
             <div>
               <div className="text-2xl sm:text-3xl font-bold text-foreground">
-                {ndaCount === null ? "..." : ndaCount === -1 ? "—" : ndaCount}
+                {ndaSigned === null ? "..." : ndaSigned === -1 ? "—" : ndaSigned}
               </div>
               <div className="text-xs text-muted-foreground">NDA Signed</div>
             </div>

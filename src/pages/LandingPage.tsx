@@ -38,7 +38,7 @@ interface CountryData {
 
 export default function LandingPage() {
   const [countryData, setCountryData] = useState<CountryData[]>([]);
-  const [stats, setStats] = useState({ students: 0, trainers: 0 });
+  const [stats, setStats] = useState({ students: 0, trainers: 0, ndaSigned: null as number | null });
   const [loading, setLoading] = useState(true);
   const [portalOpen, setPortalOpen] = useState(false);
 
@@ -126,9 +126,24 @@ export default function LandingPage() {
           .select("*", { count: "exact", head: true })
           .eq("is_active", true);
 
+        // Fetch NDA signed count from Google Apps Script
+        let ndaCount: number | null = null;
+        try {
+          const ndaRes = await fetch(
+            "https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec",
+            { redirect: "follow", mode: "cors" }
+          );
+          const ndaText = await ndaRes.text();
+          const ndaData = JSON.parse(ndaText);
+          ndaCount = ndaData.count;
+        } catch {
+          ndaCount = -1;
+        }
+
         setStats({
           students: studentCount,
           trainers: trainerCount || 0,
+          ndaSigned: ndaCount,
         });
       } catch (error) {
         console.error("Failed to fetch stats:", error);
@@ -338,7 +353,7 @@ export default function LandingPage() {
               <div className="animate-pulse text-muted-foreground">Loading map...</div>
             </div>
           ) : (
-            <WorldMap data={countryData} totalStudents={stats.students} activeTrainers={stats.trainers} />
+            <WorldMap data={countryData} totalStudents={stats.students} activeTrainers={stats.trainers} ndaSigned={stats.ndaSigned} />
           )}
         </div>
       </section>
