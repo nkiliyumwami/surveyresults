@@ -166,10 +166,20 @@ function WorldMapComponent({ data, totalStudents, activeTrainers }: WorldMapProp
   const [ndaCount, setNdaCount] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec")
-      .then((res) => res.json())
-      .then((data) => setNdaCount(data.count))
-      .catch(() => setNdaCount(-1));
+    const fetchNdaCount = async () => {
+      try {
+        const response = await fetch(
+          "https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec",
+          { redirect: "follow", mode: "cors" }
+        );
+        const text = await response.text();
+        const data = JSON.parse(text);
+        setNdaCount(data.count);
+      } catch {
+        setNdaCount(-1);
+      }
+    };
+    fetchNdaCount();
   }, []);
 
   // Create lookup map from country name to count
