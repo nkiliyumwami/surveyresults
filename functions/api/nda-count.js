@@ -6,7 +6,7 @@ export async function onRequestGet(context) {
 
   try {
     const resp = await fetch(
-      'https://script.google.com/macros/s/AKfycbwOwKAk0A4epU_wGAu_43wkSSMen4E29OWxXovadvS0W4HiMRJRfZJe4v7xI2Z-IAfo7Q/exec',
+      'https://script.google.com/macros/s/AKfycbwXjTBkN7dpGGHgLmsUFL17xrf3-juxbZ_dCXS39x0Z0eScMays9VkXwOWMHKIPoC--/exec',
       { redirect: 'follow' }
     );
     const text = await resp.text();
