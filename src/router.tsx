@@ -17,6 +17,7 @@ const BetaSignup = lazy(() => import("./pages/BetaSignup"));
 
 const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
 const BetaSignups = lazy(() => import("./pages/admin/BetaSignups"));
+const AdminNDA = lazy(() => import("./pages/AdminNDA"));
 
 const PortalLogin = lazy(() => import("./pages/portal/PortalLogin"));
 const PortalDashboard = lazy(() => import("./pages/portal/PortalDashboard"));
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
   { path: "/trainer/admin", element: <AdminRoute>{withSuspense(<TrainerAdmin />)}</AdminRoute> },
   { path: "/admin/assignments", element: <AdminRoute>{withSuspense(<AdminAssignments />)}</AdminRoute> },
   { path: "/admin/beta-signups", element: <AdminRoute>{withSuspense(<BetaSignups />)}</AdminRoute> },
+  { path: "/admin/nda", element: withSuspense(<AdminNDA />) },
   { path: "/dev/test-assignments", element: <AdminRoute>{withSuspense(<TestAssignments />)}</AdminRoute> },
   { path: "/dev/test-matching", element: <AdminRoute>{withSuspense(<TestMatchingEngine />)}</AdminRoute> },
   { path: "/dev/sync-students", element: <AdminRoute>{withSuspense(<SyncStudents />)}</AdminRoute> },
