@@ -15,6 +15,7 @@ const TrainerLogin = lazy(() => import("./pages/trainer/Login"));
 const TrainerHome = lazy(() => import("./pages/trainer/Home"));
 const TrainerProfile = lazy(() => import("./pages/trainer/Profile"));
 const TrainerAdmin = lazy(() => import("./pages/trainer/Admin"));
+const AdminNDA = lazy(() => import("./pages/AdminNDA"));
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,9 @@ const App = () => (
                 </AdminRoute>
               }
             />
+
+            {/* NDA report (self-gated by password) */}
+            <Route path="/admin/nda" element={<AdminNDA />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
