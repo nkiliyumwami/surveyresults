@@ -244,31 +244,34 @@ export default function LandingPage() {
             transition={{ delay: 0.4, duration: 0.8 }}
             className="mt-16 relative"
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
-            <div className="relative rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden p-1">
-              <div className="rounded-lg bg-background/50 p-6 sm:p-8">
-                <div className="grid grid-cols-3 gap-4 sm:gap-8">
-                  {/* Mini stat cards preview */}
-                  {[
-                    { icon: Shield, label: "Security Domains", value: "8+" },
-                    { icon: Globe, label: "Global Reach", value: "15+" },
-                    { icon: Users, label: "Community", value: "Growing" },
-                  ].map((item, i) => (
-                    <div
-                      key={i}
-                      className="text-center p-4 rounded-lg bg-muted/30"
-                    >
-                      <item.icon className="h-6 w-6 text-primary mx-auto mb-2" />
-                      <div className="text-lg font-bold text-foreground">
-                        {item.value}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.label}
-                      </div>
-                    </div>
-                  ))}
+            <div className="aspect-video rounded-lg overflow-hidden border border-border/50 bg-card/30">
+              <iframe
+                src="https://app.heygen.com/embeds/52a60897ee3046ad8b60e8d8490ff3c2"
+                title="CyberMentor: Tech-Powered Success"
+                allow="encrypted-media; fullscreen;"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+            <div className="mt-6 grid grid-cols-3 gap-4 sm:gap-8">
+              {[
+                { icon: Shield, label: "Security Domains", value: "8+" },
+                { icon: Globe, label: "Global Reach", value: "15+" },
+                { icon: Users, label: "Community", value: "Growing" },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="text-center p-4 rounded-lg bg-muted/30"
+                >
+                  <item.icon className="h-6 w-6 text-primary mx-auto mb-2" />
+                  <div className="text-lg font-bold text-foreground">
+                    {item.value}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {item.label}
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </motion.div>
         </div>
