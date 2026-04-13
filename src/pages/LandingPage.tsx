@@ -245,12 +245,15 @@ export default function LandingPage() {
             className="mt-16 relative"
           >
             <div className="aspect-video rounded-lg overflow-hidden border border-border/50 bg-card/30">
-              <iframe
-                src="https://app.heygen.com/embeds/52a60897ee3046ad8b60e8d8490ff3c2"
-                title="CyberMentor: Tech-Powered Success"
-                allow="encrypted-media; fullscreen;"
-                allowFullScreen
-                className="w-full h-full"
+              <video
+                src="https://resource2.heygen.ai/video/transcode/52a60897ee3046ad8b60e8d8490ff3c2/v7FJgAEr77pjZOrMvtxWjBJHF5jI4jMiy/1280x720.mp4"
+                poster="https://dynamic.heygen.ai/aws_pacific/avatar_tmp/a40ae4e6d2d946f89db160b1a6fb5407/v7FJgAEr77pjZOrMvtxWjBJHF5jI4jMiy/52a60897ee3046ad8b60e8d8490ff3c2.jpeg"
+                autoPlay
+                muted
+                loop
+                controls
+                playsInline
+                className="w-full h-full object-cover rounded-lg"
               />
             </div>
             <div className="mt-6 grid grid-cols-3 gap-4 sm:gap-8">
